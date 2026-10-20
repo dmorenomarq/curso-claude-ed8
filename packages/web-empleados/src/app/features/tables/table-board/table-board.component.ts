@@ -1,4 +1,5 @@
 import { Component, OnDestroy, OnInit, computed, inject } from '@angular/core'
+import { RouterLink } from '@angular/router'
 import { AuthStore } from '@resttek/web-shared'
 import { TableStore } from '../store/table.store'
 import { Table, TableStatus } from '../models/table.model'
@@ -6,6 +7,7 @@ import { Table, TableStatus } from '../models/table.model'
 @Component({
   selector: 'app-table-board',
   standalone: true,
+  imports: [RouterLink],
   templateUrl: './table-board.component.html',
   styleUrl: './table-board.component.css'
 })

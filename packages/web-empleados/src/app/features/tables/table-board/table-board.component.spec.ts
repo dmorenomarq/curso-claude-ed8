@@ -74,6 +74,14 @@ describe('TableBoardComponent', () => {
     expect(cards[1].querySelector('.badge')?.textContent).toContain('ocupada')
   })
 
+  it('las mesas ocupadas enlazan a su detalle', () => {
+    const el: HTMLElement = setup('camarero').nativeElement
+
+    const links = el.querySelectorAll('.table-detail-link')
+    expect(links.length).toBe(1)
+    expect(links[0].getAttribute('href')).toBe('/mesas/t2')
+  })
+
   it('cambiar el selector pide el cambio de estado a la store', () => {
     const el: HTMLElement = setup('camarero').nativeElement
 

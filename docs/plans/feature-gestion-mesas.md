@@ -50,16 +50,16 @@ Que el administrador gestione las mesas de un restaurante (CRUD), que el cliente
 
 ## Criterios de aceptación
 
-- [ ] Todos los endpoints de `gestion-mesas.openapi.yaml` existen con los roles, códigos y cuerpos de error descritos (comprobado con tests de integración).
-- [ ] `POST /restaurants/{id}/tables` con número repetido en el mismo restaurante devuelve 409 `DuplicatedTableNumberError`; con capacidad < 1 devuelve 400 `InvalidTableError`.
-- [ ] `DELETE` de una mesa ocupada o reservada devuelve 409 `TableInUseError`; de una libre devuelve 204.
-- [ ] `GET /tables/available?partySize=N` solo devuelve mesas `libre` con `capacity >= N`, ordenadas por capacidad y número; `partySize` inválido devuelve 400 `InvalidPartySizeError`.
-- [ ] Dos `occupy` simultáneos sobre la misma mesa: uno responde 200 y el otro 409 `TableNotAvailableError`; repetir el mismo cliente sobre la misma mesa responde 200.
-- [ ] `PATCH .../status` a `libre` con líneas sin entregar devuelve 409 `TableInUseError` con `pendingItems`, salvo con `?force=true` de admin o manager.
-- [ ] `POST /orders` con `tableId` de una mesa no ocupada devuelve 409 y la respuesta de `Order` incluye `tableNumber`.
-- [ ] Un empleado que no es admin recibe 403 al operar sobre otro restaurante; un cocinero no puede crear, cambiar estado ni ocupar.
+- [x] Todos los endpoints de `gestion-mesas.openapi.yaml` existen con los roles, códigos y cuerpos de error descritos (comprobado con tests de integración).
+- [x] `POST /restaurants/{id}/tables` con número repetido en el mismo restaurante devuelve 409 `DuplicatedTableNumberError`; con capacidad < 1 devuelve 400 `InvalidTableError`.
+- [x] `DELETE` de una mesa ocupada o reservada devuelve 409 `TableInUseError`; de una libre devuelve 204.
+- [x] `GET /tables/available?partySize=N` solo devuelve mesas `libre` con `capacity >= N`, ordenadas por capacidad y número; `partySize` inválido devuelve 400 `InvalidPartySizeError`.
+- [x] Dos `occupy` simultáneos sobre la misma mesa: uno responde 200 y el otro 409 `TableNotAvailableError`; repetir el mismo cliente sobre la misma mesa responde 200.
+- [x] `PATCH .../status` a `libre` con líneas sin entregar devuelve 409 `TableInUseError` con `pendingItems`, salvo con `?force=true` de admin o manager.
+- [x] `POST /orders` con `tableId` de una mesa no ocupada devuelve 409 y la respuesta de `Order` incluye `tableNumber`.
+- [x] Un empleado que no es admin recibe 403 al operar sobre otro restaurante; un cocinero no puede crear, cambiar estado ni ocupar.
 - [ ] Flujo cliente en `web-clientes`: elegir restaurante → nº de personas → mesas → «Continuar» → carta; sin mesa no se puede llegar a la carta ni enviar el pedido.
 - [ ] `web-admin` permite listar, filtrar, crear, editar y borrar mesas mostrando los mensajes de error en español.
 - [ ] `web-empleados` muestra el estado de las mesas, permite cambiarlo y muestra los pedidos de las mesas ocupadas, refrescando cada 30 s.
 - [ ] `npm test` en `packages/api` y los tests de cada front pasan; `redocly lint gestion-mesas.openapi.yaml` sin errores.
-- [ ] Las capas de la API se respetan (routes → controllers → services → repositories → models) y SQL solo aparece en repositories.
+- [x] Las capas de la API se respetan (routes → controllers → services → repositories → models) y SQL solo aparece en repositories.

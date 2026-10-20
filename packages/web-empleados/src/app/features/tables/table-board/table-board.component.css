@@ -1,0 +1,55 @@
+.tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4, 1rem);
+}
+
+.table-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--bg-card, #1e1e2a);
+  border: 1px solid var(--border, #2e2e3e);
+  border-radius: var(--radius-md, 10px);
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.table-number {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.table-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--text-secondary, #a0a0b0);
+  font-size: 0.875rem;
+}
+
+.badge-mesa-libre { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.badge-mesa-ocupada { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.badge-mesa-reservada { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+
+.alert-conflict {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius-md, 10px);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.conflict-actions {
+  display: flex;
+  gap: 0.5rem;
+}

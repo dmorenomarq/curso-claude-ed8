@@ -1,0 +1,51 @@
+<div class="page-header">
+  <a routerLink="/mesas" class="back-link">&larr; Mesas</a>
+  @if (table(); as table) {
+    <h1>Mesa {{ table.number }}</h1>
+    <p class="table-info">
+      {{ table.status }} · {{ table.capacity }} personas
+      @if (table.partySize) {
+        · {{ table.partySize }} comensales
+      }
+      @if (table.description) {
+        · {{ table.description }}
+      }
+    </p>
+  } @else {
+    <h1>Mesa</h1>
+  }
+</div>
+
+@if (error()) {
+  <div class="alert-error">{{ error() }}</div>
+}
+
+@if (orders().length === 0 && !error()) {
+  <div class="empty-state">
+    <p>Esta mesa no tiene pedidos</p>
+  </div>
+} @else {
+  <div class="orders-grid">
+    @for (order of orders(); track order.id) {
+      <div class="order-card">
+        <div class="order-header">
+          <span class="order-id">Pedido #{{ order.id.substring(0, 8) }}</span>
+        </div>
+        <div class="order-items">
+          @for (item of order.items; track item.id) {
+            <div class="order-item">
+              <div class="item-info">
+                <span class="item-quantity">{{ item.quantity }}x</span>
+                <span class="item-name">{{ item.dishName || 'Producto' }}</span>
+                @if (item.notes) {
+                  <span class="item-notes">{{ item.notes }}</span>
+                }
+              </div>
+              <span [class]="getStatusClass(item.status)">{{ item.status }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+}

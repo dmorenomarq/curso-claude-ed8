@@ -41,7 +41,7 @@ Que el administrador gestione las mesas de un restaurante (CRUD), que el cliente
 | 25 | [EMP] `TableStore` con polling de 30 s según el patrón de `OrderStore` con test | `packages/web-empleados/src/app/features/tables/store/table.store.ts` | 10 | [x] |
 | 26 | [EMP] Pantalla de salón: mesas por estado con selector de estado y forzado para manager ante `TableInUseError` | `packages/web-empleados/src/app/features/tables/table-board/` | 10 | [x] |
 | 27 | [EMP] Detalle de mesa ocupada con los pedidos y el estado de cada línea | `packages/web-empleados/src/app/features/tables/table-detail/` | 10 | [x] |
-| 28 | [EMP] Rutas, entrada de menú para camarero y manager (cocinero solo lectura) y «Mesa N» en cocina, barra y salón | `packages/web-empleados/src/app/app.routes.ts`, `core/layout/`, `features/orders/` | 10 | [ ] |
+| 28 | [EMP] Rutas, entrada de menú para camarero y manager (cocinero solo lectura) y «Mesa N» en cocina, barra y salón | `packages/web-empleados/src/app/app.routes.ts`, `core/layout/`, `features/orders/` | 10 | [x] |
 | 29 | [CLI] Modelo `Table`, `Order.tableNumber` y `TableService` (`available?partySize`, `mine`, `occupy`, `release`) con test | `packages/web-clientes/src/app/core/models/`, `core/services/table.service.ts` | 10 | [ ] |
 | 30 | [CLI] Guardar el `tableId` en `CartStore` y enviarlo en `OrderService.createOrder` (hoy manda `null`) con test | `packages/web-clientes/src/app/core/store/`, `core/services/order.service.ts` | 8 | [ ] |
 | 31 | [CLI] Pantalla «personas y mesas» entre `restaurant-list` y `restaurants/:id`: número de personas, mesas disponibles y botón «Continuar» que ocupa | `packages/web-clientes/src/app/features/tables/`, `app.routes.ts` | 10 | [ ] |

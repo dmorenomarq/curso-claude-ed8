@@ -1,17 +1,17 @@
 ---
 name: implement-plan
-description: Implementa un plan de docs/plans/ (generado con plan-feature) en un git worktree nuevo, tarea a tarea con TDD estricto, haciendo un commit por tarea y marcándola como hecha en el plan hasta cumplir los criterios de aceptación. Úsala cuando el usuario pida implementar, ejecutar o desarrollar un plan.
-argument-hint: "[ruta del plan, p. ej. docs/plans/feature-listado-paginado.md]"
-allowed-tools: Read, Edit, Write, Grep, Glob, AskUserQuestion, Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git branch:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(cp:*), Bash(ln:*), Bash(npm install:*), Bash(node:*)
+description: Implementa una issue de GitHub cuyo plan está en docs/plans/ (generado con plan-feature) en un git worktree nuevo, tarea a tarea con TDD estricto, haciendo un commit por tarea y marcándola como hecha en el plan hasta cumplir los criterios de aceptación. Al terminar deja la PR creada y avisa por Slack con el enlace. Úsala cuando el usuario pida implementar, ejecutar o desarrollar una issue o su plan.
+argument-hint: "[número de la issue de GitHub a implementar]"
+allowed-tools: Read, Edit, Write, Grep, Glob, AskUserQuestion, Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git branch:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(gh issue view:*), Bash(gh pr create:*), Bash(gh pr view:*), mcp__slack__slack_list_channels, mcp__slack__slack_post_message, Bash(cp:*), Bash(ln:*), Bash(npm install:*), Bash(node:*)
 ---
 
-Implementa el plan indicado, siguiendo los pasos de abajo en orden.
+Implementa la issue de GitHub indicada y su plan, siguiendo los pasos de abajo en orden.
 
-Plan a implementar: $ARGUMENTS
+Issue a implementar: $ARGUMENTS
 
 ## 1. Preparación
 
-1. **Localiza el plan.** Si no se indicó ruta, lista `docs/plans/` y pregunta con `AskUserQuestion` cuál implementar. Léelo entero. Debe tener las secciones **Objetivo**, **Tareas** y **Criterios de aceptación**; si no las tiene, díselo al usuario y termina.
+1. **Obtén la issue y localiza el plan.** El usuario debe indicar el número de la issue; si no lo hizo, pídeselo con `AskUserQuestion`. Léela con `gh issue view <número> --comments` (título, descripción y comentarios, donde está publicado el plan). Localiza el plan correspondiente en `docs/plans/`; si no está claro cuál es, lista la carpeta y pregunta con `AskUserQuestion`. Léelo entero. Debe tener las secciones **Objetivo**, **Tareas** y **Criterios de aceptación**; si no las tiene, díselo al usuario y termina.
 2. **Detecta el avance previo.** Si ya hay tareas marcadas con `[x]` en la columna `Hecha`, empieza por la primera sin marcar. Si no hay columna `Hecha`, añádela en la copia del worktree (con `[ ]` en cada fila) antes de empezar.
 3. **Crea el worktree** (nunca trabajes en el directorio principal):
    - Rama: `<tipo>/<slug>`, tomando `<tipo>` y `<slug>` del nombre del plan (`docs/plans/refactor-middleware-errores.md` → `refactor/middleware-errores`).
@@ -72,9 +72,14 @@ Cuando todas las tareas estén marcadas:
 
 ## 4. Cierre
 
-- No hagas `push`, merge ni borres el worktree: eso lo decide el usuario.
-- Resume en pocas líneas: rama y ruta del worktree, commits creados (`git log --oneline` desde la base), estado de las pruebas y de cada criterio de aceptación, y cualquier desviación del plan.
-- Indica que, para integrarlo, el usuario puede hacer merge de la rama y eliminar el worktree con `git worktree remove <ruta>`.
+1. **Sube la rama** desde el worktree: `git push -u origin <rama>`. No hagas merge ni borres el worktree: eso lo decide el usuario.
+2. **Crea la PR** con `gh pr create` (base: la rama principal) desde la rama del worktree:
+   - Título: en Conventional Commits en español, como el de un commit (`tipo(ámbito): descripción`).
+   - Descripción: resumen del cambio, tareas completadas, estado de las pruebas y de los criterios de aceptación, desviaciones del plan, y la línea `Closes #<número>` para enlazar la issue. Termina con la línea de atribución que indique la configuración de la sesión.
+   - Obtén la URL de la PR (la imprime `gh pr create`; si no, `gh pr view --json url`).
+3. **Avisa por Slack** con `mcp__slack__slack_post_message`, con un mensaje breve que incluya el título, la issue (`#<número>`) y el **enlace directo a la PR**. Si no se conoce el canal, búscalo con `mcp__slack__slack_list_channels` y pregunta al usuario con `AskUserQuestion` cuál usar. Si el envío falla, díselo al usuario y no lo des por enviado.
+4. **Resume** en pocas líneas: rama y ruta del worktree, commits creados (`git log --oneline` desde la base), estado de las pruebas y de cada criterio de aceptación, cualquier desviación del plan, y el enlace a la PR.
+5. Indica que, tras revisar y mergear la PR, el usuario puede eliminar el worktree con `git worktree remove <ruta>`.
 
 ## Estilo
 

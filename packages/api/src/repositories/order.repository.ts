@@ -36,6 +36,8 @@ export interface OrderRepository {
     updateItemStatus(orderId: string, itemId: string, status: string): Promise<void>
     findActiveByRestaurant(restaurantId: string): Promise<Order[]>
     findByClientId(clientId: string): Promise<Order[]>
+    /** Líneas sin entregar de los pedidos de una mesa; con `since`, solo pedidos creados desde esa fecha ISO. */
+    countPendingItemsByTable(tableId: string, since: string | null): Promise<number>
 }
 
 export class SqliteOrderRepository implements OrderRepository {
@@ -138,6 +140,17 @@ export class SqliteOrderRepository implements OrderRepository {
         }
 
         return orders
+    }
+
+    async countPendingItemsByTable(tableId: string, since: string | null): Promise<number> {
+        const row = await this.db.get<{ pending: number }>(
+            `SELECT COUNT(*) as pending
+             FROM order_items oi
+             JOIN orders o ON o.id = oi.order_id
+             WHERE o.table_id = ? AND oi.status != 'entregado' AND (? IS NULL OR o.created_at >= ?)`,
+            [tableId, since, since]
+        )
+        return row?.pending ?? 0
     }
 
     private async getOrderItems(orderId: string): Promise<OrderItem[]> {

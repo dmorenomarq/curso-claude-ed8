@@ -21,9 +21,11 @@ export interface CartItem {
 export class CartStore {
   private readonly _items = signal<CartItem[]>([])
   private readonly _restaurantId = signal<string | null>(null)
+  private readonly _tableId = signal<string | null>(null)
 
   readonly items = this._items.asReadonly()
   readonly restaurantId = this._restaurantId.asReadonly()
+  readonly tableId = this._tableId.asReadonly()
 
   readonly total = computed(() =>
     this._items().reduce((sum, item) => sum + item.dish.price * item.quantity, 0)
@@ -77,5 +79,13 @@ export class CartStore {
   clear(): void {
     this._items.set([])
     this._restaurantId.set(null)
+  }
+
+  setTable(tableId: string): void {
+    this._tableId.set(tableId)
+  }
+
+  clearTable(): void {
+    this._tableId.set(null)
   }
 }

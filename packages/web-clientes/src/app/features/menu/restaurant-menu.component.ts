@@ -1,7 +1,9 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core'
-import { ActivatedRoute, RouterLink } from '@angular/router'
+import { ActivatedRoute, Router, RouterLink } from '@angular/router'
 import { DecimalPipe } from '@angular/common'
 import { LucideAngularModule } from 'lucide-angular'
+import { HttpErrorResponse } from '@angular/common/http'
+import { TableService } from '../../core/services/table.service'
 import { DishService } from '../../core/services/dish.service'
 import { RestaurantService } from '../../core/services/restaurant.service'
 import { CartStore, Dish } from '../../core/store/cart.store'
@@ -18,7 +20,12 @@ import { Restaurant } from '../../core/models/restaurant.model'
           <a routerLink="/restaurants" class="back-link">← Volver a restaurantes</a>
           <h1>{{ restaurant()?.name || 'Cargando...' }}</h1>
         </div>
+        <button class="btn btn-secondary" (click)="releaseTable()">Liberar mesa</button>
       </div>
+
+      @if (releaseError()) {
+        <div class="alert-error">{{ releaseError() }}</div>
+      }
 
       @if (loading()) {
         <div class="spinner"></div>
@@ -209,6 +216,8 @@ import { Restaurant } from '../../core/models/restaurant.model'
 })
 export class RestaurantMenuComponent implements OnInit {
   private readonly route = inject(ActivatedRoute)
+  private readonly router = inject(Router)
+  private readonly tableService = inject(TableService)
   private readonly dishService = inject(DishService)
   private readonly restaurantService = inject(RestaurantService)
   readonly cartStore = inject(CartStore)
@@ -217,6 +226,7 @@ export class RestaurantMenuComponent implements OnInit {
   readonly dishes = signal<Dish[]>([])
   readonly loading = signal(true)
   readonly error = signal<string | null>(null)
+  readonly releaseError = signal<string | null>(null)
   private quantities = signal<Record<string, number>>({})
 
   readonly categories = computed(() => {
@@ -271,6 +281,24 @@ export class RestaurantMenuComponent implements OnInit {
     if (current > 1) {
       this.quantities.update(q => ({ ...q, [dish.id]: current - 1 }))
     }
+  }
+
+  releaseTable(): void {
+    const tableId = this.cartStore.tableId()
+    if (!tableId) return
+    const restaurantId = this.route.snapshot.paramMap.get('id')!
+
+    this.releaseError.set(null)
+    this.tableService.release(restaurantId, tableId).subscribe({
+      next: () => {
+        this.cartStore.clear()
+        this.cartStore.clearTable()
+        this.router.navigate(['/restaurants'])
+      },
+      error: (err: HttpErrorResponse) => {
+        this.releaseError.set(err.error?.message ?? 'No se pudo liberar la mesa')
+      }
+    })
   }
 
   addToCart(dish: Dish): void {

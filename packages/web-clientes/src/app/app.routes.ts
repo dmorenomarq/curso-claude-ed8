@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { tableGuard, cartTableGuard } from './core/guards/table.guard'
 import { LoginComponent, RegisterComponent, authGuard } from '@resttek/web-shared';
 
 export const routes: Routes = [
@@ -15,11 +16,17 @@ export const routes: Routes = [
         loadComponent: () => import('./features/restaurants/restaurant-list.component').then(m => m.RestaurantListComponent)
       },
       {
+        path: 'restaurants/:id/mesas',
+        loadComponent: () => import('./features/tables/table-selection.component').then(m => m.TableSelectionComponent)
+      },
+      {
         path: 'restaurants/:id',
+        canActivate: [tableGuard],
         loadComponent: () => import('./features/menu/restaurant-menu.component').then(m => m.RestaurantMenuComponent)
       },
       {
         path: 'cart',
+        canActivate: [cartTableGuard],
         loadComponent: () => import('./features/cart/cart.component').then(m => m.CartComponent)
       },
       {

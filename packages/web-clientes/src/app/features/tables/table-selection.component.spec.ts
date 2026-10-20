@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing'
 import { ActivatedRoute, Router, provideRouter } from '@angular/router'
-import { of } from 'rxjs'
+import { of, throwError } from 'rxjs'
+import { HttpErrorResponse } from '@angular/common/http'
 import { TableSelectionComponent } from './table-selection.component'
 import { TableService } from '../../core/services/table.service'
 import { CartStore } from '../../core/store/cart.store'
@@ -86,5 +87,55 @@ describe('TableSelectionComponent', () => {
     expect(tableService.occupy).toHaveBeenCalledWith('r1', 't2', 3)
     expect(TestBed.inject(CartStore).tableId()).toBe('t2')
     expect(router.navigate).toHaveBeenCalledWith(['/restaurants', 'r1'])
+  })
+
+  describe('errores al ocupar', () => {
+    const httpError = (status: number, body: object) =>
+      throwError(() => new HttpErrorResponse({ status, error: body }))
+
+    function selectAndContinue() {
+      const fixture = create()
+      const c = fixture.componentInstance
+      c.setPartySize('3')
+      c.search()
+      c.select(c.tables()[1])
+      tableService.occupy.mockReturnValue(httpError(409, { error: 'TableNotAvailableError', message: 'La mesa ya no está disponible' }))
+      return { fixture, c }
+    }
+
+    it('TableNotAvailableError refresca la lista y muestra el mensaje', () => {
+      const { c } = selectAndContinue()
+      tableService.getAvailable.mockClear()
+      tableService.occupy.mockReturnValue(httpError(409, { error: 'TableNotAvailableError', message: 'La mesa ya no está disponible' }))
+      c.continue()
+      expect(tableService.getAvailable).toHaveBeenCalledWith('r1', 3)
+      expect(c.error()).toBe('La mesa ya no está disponible')
+      expect(c.selected()).toBeNull()
+      expect(c.occupying()).toBe(false)
+    })
+
+    it('ClientAlreadySeatedError continúa a la carta con su tableId', () => {
+      const { c } = selectAndContinue()
+      tableService.occupy.mockReturnValue(httpError(409, { error: 'ClientAlreadySeatedError', message: 'Ya tienes la mesa 2 ocupada', tableId: 't9' }))
+      c.continue()
+      expect(TestBed.inject(CartStore).tableId()).toBe('t9')
+      expect(router.navigate).toHaveBeenCalledWith(['/restaurants', 'r1'])
+    })
+
+    it('InvalidPartySizeError muestra el mensaje y mantiene la selección', () => {
+      const { c } = selectAndContinue()
+      tableService.occupy.mockReturnValue(httpError(400, { error: 'InvalidPartySizeError', message: 'La mesa no admite 3 personas' }))
+      c.continue()
+      expect(c.error()).toBe('La mesa no admite 3 personas')
+      expect(c.occupying()).toBe(false)
+      expect(router.navigate).not.toHaveBeenCalled()
+    })
+
+    it('un error desconocido muestra un mensaje genérico', () => {
+      const { c } = selectAndContinue()
+      tableService.occupy.mockReturnValue(httpError(500, {}))
+      c.continue()
+      expect(c.error()).toBe('No se pudo reservar la mesa. Inténtalo de nuevo.')
+    })
   })
 })

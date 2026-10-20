@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core'
+import { HttpErrorResponse } from '@angular/common/http'
 import { ActivatedRoute, Router, RouterLink } from '@angular/router'
 import { TableService } from '../../core/services/table.service'
 import { CartStore } from '../../core/store/cart.store'
@@ -138,11 +139,26 @@ export class TableSelectionComponent {
         this.cartStore.setTable(occupied.id)
         this.router.navigate(['/restaurants', this.restaurantId])
       },
-      error: () => {
-        this.error.set('No se pudo reservar la mesa. Inténtalo de nuevo.')
-        this.occupying.set(false)
-      }
+      error: (err: HttpErrorResponse) => this.handleOccupyError(err)
     })
+  }
+
+  private handleOccupyError(err: HttpErrorResponse): void {
+    this.occupying.set(false)
+    const name = err.error?.error
+    const message = err.error?.message
+
+    if (name === 'ClientAlreadySeatedError' && err.error?.tableId) {
+      this.cartStore.setTable(err.error.tableId)
+      this.router.navigate(['/restaurants', this.restaurantId])
+    } else if (name === 'TableNotAvailableError') {
+      this.search()
+      this.error.set(message ?? 'La mesa ya no está disponible')
+    } else if (name === 'InvalidPartySizeError') {
+      this.error.set(message ?? 'La mesa no admite ese número de personas')
+    } else {
+      this.error.set('No se pudo reservar la mesa. Inténtalo de nuevo.')
+    }
   }
 
   private parsePartySize(): number | null {

@@ -113,3 +113,117 @@ describe('SqliteTableRepository (CRUD)', () => {
         expect(await repo.findById('t1')).toBeNull()
     })
 })
+
+describe('SqliteTableRepository (ocupación)', () => {
+    let db: Database
+    let repo: SqliteTableRepository
+
+    beforeAll(async () => {
+        process.env.NODE_ENV = 'test'
+        db = new Database()
+        await db.initialize()
+        repo = new SqliteTableRepository(db)
+        for (const id of ['r1', 'r2']) {
+            await db.run(
+                'INSERT INTO restaurants (id, name, address, email, phone, owner_first_name, owner_last_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [id, 'La Trattoria', 'Calle Mayor 10', 'info@trattoria.com', '+34 612345678', 'Carlos', 'García', 'now', 'now']
+            )
+        }
+    })
+
+    beforeEach(async () => {
+        await db.run('DELETE FROM restaurant_tables')
+    })
+
+    afterAll(async () => {
+        await db.close()
+    })
+
+    it('findAvailable returns only free tables with enough capacity, ordered by capacity and number', async () => {
+        await repo.create(makeTable({ id: 'a', number: 1, capacity: 8 }))
+        await repo.create(makeTable({ id: 'b', number: 2, capacity: 4 }))
+        await repo.create(makeTable({ id: 'c', number: 3, capacity: 4 }))
+        await repo.create(makeTable({ id: 'd', number: 4, capacity: 6, status: 'ocupada' }))
+        await repo.create(makeTable({ id: 'e', number: 5, capacity: 6, status: 'reservada' }))
+        await repo.create(makeTable({ id: 'f', number: 6, capacity: 2 }))
+        await repo.create(makeTable({ id: 'g', number: 1, capacity: 4, restaurantId: 'r2' }))
+
+        const tables = await repo.findAvailable('r1', 3)
+
+        expect(tables.map(t => t.id)).toEqual(['b', 'c', 'a'])
+    })
+
+    it('findAvailable returns an empty list when nothing fits', async () => {
+        await repo.create(makeTable({ capacity: 2 }))
+
+        expect(await repo.findAvailable('r1', 10)).toEqual([])
+    })
+
+    it('occupy marks a free table as occupied and returns true', async () => {
+        await repo.create(makeTable())
+
+        const occupied = await repo.occupy('t1', 3, 'c1', '2026-10-20T13:00:00.000Z')
+
+        expect(occupied).toBe(true)
+        expect(await repo.findById('t1')).toMatchObject({
+            status: 'ocupada', partySize: 3, occupiedByClientId: 'c1', occupiedAt: '2026-10-20T13:00:00.000Z',
+            updatedAt: '2026-10-20T13:00:00.000Z'
+        })
+    })
+
+    it('occupy stores a null client when the staff occupies the table', async () => {
+        await repo.create(makeTable())
+
+        await repo.occupy('t1', 2, null, '2026-10-20T13:00:00.000Z')
+
+        expect((await repo.findById('t1'))?.occupiedByClientId).toBeNull()
+    })
+
+    it.each(['ocupada', 'reservada'] as const)('occupy returns false when the table is %s', async status => {
+        await repo.create(makeTable({ status }))
+
+        expect(await repo.occupy('t1', 2, 'c1', '2026-10-20T13:00:00.000Z')).toBe(false)
+        expect((await repo.findById('t1'))?.status).toBe(status)
+    })
+
+    it('occupy returns false when the party does not fit', async () => {
+        await repo.create(makeTable({ capacity: 4 }))
+
+        expect(await repo.occupy('t1', 5, 'c1', '2026-10-20T13:00:00.000Z')).toBe(false)
+        expect((await repo.findById('t1'))?.status).toBe('libre')
+    })
+
+    it('only one of several simultaneous occupy calls succeeds', async () => {
+        await repo.create(makeTable())
+
+        const results = await Promise.all(
+            ['c1', 'c2', 'c3'].map(c => repo.occupy('t1', 2, c, '2026-10-20T13:00:00.000Z'))
+        )
+
+        expect(results.filter(Boolean)).toHaveLength(1)
+    })
+
+    it('findByClient returns the table occupied by the client in that restaurant', async () => {
+        await repo.create(makeTable({ id: 'a', number: 1 }))
+        await repo.create(makeTable({ id: 'b', number: 2, restaurantId: 'r2' }))
+        await repo.occupy('a', 2, 'c1', '2026-10-20T13:00:00.000Z')
+        await repo.occupy('b', 2, 'c2', '2026-10-20T13:00:00.000Z')
+
+        expect((await repo.findByClient('r1', 'c1'))?.id).toBe('a')
+        expect(await repo.findByClient('r1', 'c2')).toBeNull()
+        expect(await repo.findByClient('r2', 'c1')).toBeNull()
+    })
+
+    it('release leaves the table free and clears the occupation', async () => {
+        await repo.create(makeTable())
+        await repo.occupy('t1', 2, 'c1', '2026-10-20T13:00:00.000Z')
+
+        await repo.release('t1', '2026-10-20T14:00:00.000Z')
+
+        expect(await repo.findById('t1')).toMatchObject({
+            status: 'libre', partySize: null, occupiedByClientId: null, occupiedAt: null,
+            updatedAt: '2026-10-20T14:00:00.000Z'
+        })
+        expect(await repo.findByClient('r1', 'c1')).toBeNull()
+    })
+})

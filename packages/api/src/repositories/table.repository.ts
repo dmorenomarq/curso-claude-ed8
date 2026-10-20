@@ -31,6 +31,11 @@ export interface TableRepository {
     findByRestaurant(restaurantId: string, filters?: TableFilters): Promise<Table[]>
     update(table: Table): Promise<void>
     delete(id: string): Promise<void>
+    findAvailable(restaurantId: string, partySize: number): Promise<Table[]>
+    findByClient(restaurantId: string, clientId: string): Promise<Table | null>
+    /** Ocupa la mesa de forma atómica. Devuelve false si ya no estaba libre o no cabe el grupo. */
+    occupy(id: string, partySize: number, clientId: string | null, occupiedAt: string): Promise<boolean>
+    release(id: string, updatedAt: string): Promise<void>
 }
 
 const SELECT_TABLE = `
@@ -109,6 +114,44 @@ export class SqliteTableRepository implements TableRepository {
 
     async delete(id: string): Promise<void> {
         await this.db.run('DELETE FROM restaurant_tables WHERE id = ?', [id])
+    }
+
+    async findAvailable(restaurantId: string, partySize: number): Promise<Table[]> {
+        const rows = await this.db.all<TableRow>(
+            `${SELECT_TABLE}
+             WHERE restaurant_id = ? AND status = 'libre' AND capacity >= ?
+             ORDER BY capacity ASC, number ASC`,
+            [restaurantId, partySize]
+        )
+        return rows.map(row => this.mapToTable(row))
+    }
+
+    async findByClient(restaurantId: string, clientId: string): Promise<Table | null> {
+        const row = await this.db.get<TableRow>(
+            `${SELECT_TABLE}
+             WHERE restaurant_id = ? AND occupied_by_client_id = ? AND status = 'ocupada'`,
+            [restaurantId, clientId]
+        )
+        return row ? this.mapToTable(row) : null
+    }
+
+    async occupy(id: string, partySize: number, clientId: string | null, occupiedAt: string): Promise<boolean> {
+        const result = await this.db.run(
+            `UPDATE restaurant_tables
+             SET status = 'ocupada', party_size = ?, occupied_by_client_id = ?, occupied_at = ?, updated_at = ?
+             WHERE id = ? AND status = 'libre' AND capacity >= ?`,
+            [partySize, clientId, occupiedAt, occupiedAt, id, partySize]
+        )
+        return result.changes === 1
+    }
+
+    async release(id: string, updatedAt: string): Promise<void> {
+        await this.db.run(
+            `UPDATE restaurant_tables
+             SET status = 'libre', party_size = NULL, occupied_by_client_id = NULL, occupied_at = NULL, updated_at = ?
+             WHERE id = ?`,
+            [updatedAt, id]
+        )
     }
 
     private mapToTable(row: TableRow): Table {

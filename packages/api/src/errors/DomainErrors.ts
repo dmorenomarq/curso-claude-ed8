@@ -168,3 +168,30 @@ export class InvalidTableError extends AppError {
     super(message ?? 'Datos de mesa inválidos')
   }
 }
+
+export class TableNotFoundError extends AppError {
+  constructor() {
+    super('Mesa no encontrada')
+  }
+}
+
+export class DuplicatedTableNumberError extends AppError {
+  constructor(number: number) {
+    super(`Ya existe una mesa con el número ${number} en este restaurante`)
+  }
+}
+
+export type TableInUseReason = 'ocupada' | 'reservada' | 'pedidos_pendientes'
+
+export class TableInUseError extends AppError {
+  public readonly details: { reason: TableInUseReason, pendingItems: number }
+
+  constructor(reason: TableInUseReason, pendingItems: number) {
+    super(
+      reason === 'pedidos_pendientes'
+        ? `La mesa tiene ${pendingItems} ${pendingItems === 1 ? 'línea' : 'líneas'} de pedido sin entregar`
+        : `No se puede continuar: la mesa está ${reason}`
+    )
+    this.details = { reason, pendingItems }
+  }
+}

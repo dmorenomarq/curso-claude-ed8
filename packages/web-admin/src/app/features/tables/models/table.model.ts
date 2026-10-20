@@ -34,3 +34,11 @@ export interface TableApiError {
   reason?: TableInUseReason
   pendingItems?: number
 }
+
+export const TABLE_STATUSES: TableStatus[] = ['libre', 'ocupada', 'reservada']
+
+export const TABLE_STATUS_LABELS: Record<TableStatus, string> = {
+  libre: 'Libre',
+  ocupada: 'Ocupada',
+  reservada: 'Reservada'
+}

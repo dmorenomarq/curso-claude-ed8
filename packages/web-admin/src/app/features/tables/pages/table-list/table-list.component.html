@@ -1,0 +1,69 @@
+<div class="fade-in">
+  <div class="page-header">
+    <h1>Mesas</h1>
+    <a [routerLink]="['new']" class="btn btn-primary">
+      <lucide-icon name="plus" [size]="16"></lucide-icon>
+      Nueva mesa
+    </a>
+  </div>
+
+  <div class="filters">
+    <div class="form-group">
+      <label for="statusFilter">Estado</label>
+      <select id="statusFilter" class="form-control" [value]="store.filters().status ?? ''" (change)="onStatusFilter($any($event.target).value)">
+        <option value="">Todos</option>
+        @for (s of statuses; track s) {
+          <option [value]="s">{{ statusLabel(s) }}</option>
+        }
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="capacityFilter">Capacidad mínima</label>
+      <input id="capacityFilter" type="number" min="1" class="form-control" [value]="store.filters().minCapacity ?? ''" (input)="onCapacityFilter($any($event.target).value)" placeholder="Cualquiera" />
+    </div>
+  </div>
+
+  @if (store.loading()) {
+    <div class="spinner"></div>
+  } @else if (store.error()) {
+    <div class="alert-error">{{ store.error() }}</div>
+  } @else if (store.filteredTables().length === 0) {
+    <div class="empty-state card">
+      <lucide-icon name="utensils" [size]="40"></lucide-icon>
+      <p>No hay mesas para mostrar</p>
+    </div>
+  } @else {
+    <div class="card table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Mesa</th>
+            <th>Descripción</th>
+            <th>Capacidad</th>
+            <th>Estado</th>
+            <th>Ocupación</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of store.filteredTables(); track t.id) {
+            <tr>
+              <td class="table-number">{{ t.number }}</td>
+              <td>{{ t.description ?? '—' }}</td>
+              <td>{{ t.capacity }}</td>
+              <td><span [class]="'badge status-' + t.status">{{ statusLabel(t.status) }}</span></td>
+              <td class="occupancy">{{ occupancy(t) }}</td>
+              <td>
+                <div class="actions">
+                  <a [routerLink]="[t.id, 'edit']" class="btn btn-secondary btn-sm">
+                    <lucide-icon name="edit" [size]="14"></lucide-icon>
+                  </a>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

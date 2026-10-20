@@ -224,3 +224,126 @@ describe('TableService CRUD', () => {
         })
     })
 })
+
+describe('TableService status changes', () => {
+    let tables: MockTableRepository
+    let orders: MockOrderRepository
+    let service: TableService
+
+    beforeEach(async () => {
+        ;({ tables, orders, service } = await buildService())
+    })
+
+    const occupied = (overrides: Partial<Table> = {}) => makeTable({
+        status: 'ocupada', partySize: 3, occupiedByClientId: 'c1', occupiedAt: '2026-10-20T13:00:00.000Z', ...overrides
+    })
+
+    describe('updateStatus', () => {
+        it('allows any transition between the three states', async () => {
+            await tables.create(makeTable())
+
+            expect((await service.updateStatus('r1', 't1', 'reservada')).status).toBe('reservada')
+            expect((await service.updateStatus('r1', 't1', 'ocupada')).status).toBe('ocupada')
+            expect((await service.updateStatus('r1', 't1', 'reservada')).status).toBe('reservada')
+            expect((await service.updateStatus('r1', 't1', 'libre')).status).toBe('libre')
+            expect((await tables.findById('t1'))?.status).toBe('libre')
+        })
+
+        it('is an idempotent no-op when the table already has that status', async () => {
+            await tables.create(occupied())
+
+            const table = await service.updateStatus('r1', 't1', 'ocupada')
+
+            expect(table).toMatchObject({ status: 'ocupada', partySize: 3, occupiedByClientId: 'c1' })
+            expect(table.updatedAt).toBe('2026-10-20T10:00:00.000Z')
+        })
+
+        it('to ocupada leaves partySize and client null and sets occupiedAt to now', async () => {
+            await tables.create(makeTable())
+
+            const table = await service.updateStatus('r1', 't1', 'ocupada')
+
+            expect(table.partySize).toBeNull()
+            expect(table.occupiedByClientId).toBeNull()
+            expect(table.occupiedAt).not.toBeNull()
+        })
+
+        it('to libre clears the occupation', async () => {
+            await tables.create(occupied())
+
+            const table = await service.updateStatus('r1', 't1', 'libre')
+
+            expect(table).toMatchObject({ status: 'libre', partySize: null, occupiedByClientId: null, occupiedAt: null })
+        })
+
+        it('to libre fails with TableInUseError when there are undelivered lines of the current occupation', async () => {
+            await tables.create(occupied())
+            await orders.create(makeOrder('o1', 't1', ['pendiente', 'entregado', 'listo'], new Date('2026-10-20T13:30:00.000Z')))
+            await orders.create(makeOrder('old', 't1', ['pendiente'], new Date('2026-10-20T09:00:00.000Z')))
+
+            const error = await service.updateStatus('r1', 't1', 'libre').catch(e => e)
+
+            expect(error).toBeInstanceOf(TableInUseError)
+            expect(error.details).toEqual({ reason: 'pedidos_pendientes', pendingItems: 2 })
+            expect((await tables.findById('t1'))?.status).toBe('ocupada')
+        })
+
+        it('to libre with force=true skips the pending lines check', async () => {
+            await tables.create(occupied())
+            await orders.create(makeOrder('o1', 't1', ['pendiente'], new Date('2026-10-20T13:30:00.000Z')))
+
+            const table = await service.updateStatus('r1', 't1', 'libre', true)
+
+            expect(table.status).toBe('libre')
+        })
+
+        it('to reservada never fails because of pending lines and clears the occupation', async () => {
+            await tables.create(occupied())
+            await orders.create(makeOrder('o1', 't1', ['pendiente'], new Date('2026-10-20T13:30:00.000Z')))
+
+            const table = await service.updateStatus('r1', 't1', 'reservada')
+
+            expect(table).toMatchObject({ status: 'reservada', partySize: null, occupiedByClientId: null, occupiedAt: null })
+        })
+
+        it('rejects an invalid status', async () => {
+            await tables.create(makeTable())
+
+            await expect(service.updateStatus('r1', 't1', 'cerrada' as any)).rejects.toThrow(InvalidTableError)
+        })
+
+        it('throws TableNotFoundError for an unknown table or another restaurant', async () => {
+            await tables.create(makeTable({ restaurantId: 'r2' }))
+
+            await expect(service.updateStatus('r1', 't1', 'libre')).rejects.toThrow(TableNotFoundError)
+            await expect(service.updateStatus('r1', 'nope', 'libre')).rejects.toThrow(TableNotFoundError)
+        })
+    })
+
+    describe('update with status', () => {
+        it('keeps the current status when it is omitted', async () => {
+            await tables.create(occupied())
+
+            const table = await service.update('r1', 't1', { number: 1, capacity: 6 })
+
+            expect(table).toMatchObject({ status: 'ocupada', partySize: 3, capacity: 6 })
+        })
+
+        it('applies the same rules as PATCH status when it changes to libre', async () => {
+            await tables.create(occupied())
+            await orders.create(makeOrder('o1', 't1', ['pendiente'], new Date('2026-10-20T13:30:00.000Z')))
+
+            await expect(service.update('r1', 't1', { number: 1, capacity: 6, status: 'libre' }))
+                .rejects.toThrow(TableInUseError)
+            expect(await tables.findById('t1')).toMatchObject({ status: 'ocupada', capacity: 4 })
+        })
+
+        it('changes the status and the fields together', async () => {
+            await tables.create(makeTable())
+
+            const table = await service.update('r1', 't1', { number: 2, capacity: 6, status: 'reservada' })
+
+            expect(table).toMatchObject({ number: 2, capacity: 6, status: 'reservada' })
+        })
+    })
+})

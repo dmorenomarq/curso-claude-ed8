@@ -69,7 +69,7 @@ export class TableService {
         return table
     }
 
-    async update(restaurantId: string, id: string, dto: TableInputDTO): Promise<Table> {
+    async update(restaurantId: string, id: string, dto: TableInputDTO, force = false): Promise<Table> {
         const existing = await this.getById(restaurantId, id)
 
         const number = validateTableNumber(dto.number)
@@ -79,14 +79,29 @@ export class TableService {
             await this.assertNumberAvailable(restaurantId, number)
         }
 
-        const updated: Table = {
+        const withFields: Table = {
             ...existing,
             number,
             capacity,
             description,
             updatedAt: new Date().toISOString()
         }
+        const updated = dto.status === undefined
+            ? withFields
+            : await this.withStatus(withFields, normalizeTableStatus(dto.status), force)
 
+        await this.tableRepository.update(updated)
+        return updated
+    }
+
+    async updateStatus(restaurantId: string, id: string, status: TableStatusType, force = false): Promise<Table> {
+        const existing = await this.getById(restaurantId, id)
+        const newStatus = normalizeTableStatus(status)
+        if (newStatus === existing.status) {
+            return existing
+        }
+
+        const updated = await this.withStatus(existing, newStatus, force)
         await this.tableRepository.update(updated)
         return updated
     }
@@ -103,6 +118,30 @@ export class TableService {
         }
 
         await this.tableRepository.delete(table.id)
+    }
+
+    /** Devuelve la mesa con el nuevo estado aplicado (sin persistir), o la misma si ya lo tenía. */
+    private async withStatus(table: Table, status: TableStatusType, force: boolean): Promise<Table> {
+        if (status === table.status) {
+            return table
+        }
+
+        if (status === 'libre' && !force) {
+            const pendingItems = await this.orderRepository.countPendingItemsByTable(table.id, table.occupiedAt)
+            if (pendingItems > 0) {
+                throw new TableInUseError('pedidos_pendientes', pendingItems)
+            }
+        }
+
+        const now = new Date().toISOString()
+        return {
+            ...table,
+            status,
+            partySize: null,
+            occupiedByClientId: null,
+            occupiedAt: status === 'ocupada' ? now : null,
+            updatedAt: now
+        }
     }
 
     private async assertNumberAvailable(restaurantId: string, number: number): Promise<void> {

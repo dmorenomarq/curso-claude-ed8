@@ -9,7 +9,8 @@ import {
     ClientAlreadySeatedError,
     InvalidPartySizeError,
     TableNotOccupiedError,
-    TableNotOccupiedByClientError
+    TableNotOccupiedByClientError,
+    NotTableOwnerError
 } from '@errors/DomainErrors.js'
 
 function run(error: unknown) {
@@ -99,5 +100,13 @@ describe('errorHandler (ocupación de mesas)', () => {
         const { status, body } = run(new TableNotOccupiedByClientError())
         expect(status).toBe(409)
         expect(body.error).toBe('TableNotOccupiedByClientError')
+    })
+})
+
+describe('errorHandler (permisos de mesas)', () => {
+    it('maps NotTableOwnerError to 403 with the middleware error format', () => {
+        const { status, body } = run(new NotTableOwnerError())
+        expect(status).toBe(403)
+        expect(body).toEqual({ error: 'Forbidden: Only the client occupying the table can release it' })
     })
 })

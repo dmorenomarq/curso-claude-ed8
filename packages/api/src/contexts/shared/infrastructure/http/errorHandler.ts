@@ -18,12 +18,21 @@ const CONFLICT_ERRORS = [
     'TableNotOccupiedByClientError'
 ]
 
+const FORBIDDEN_ERRORS = [
+    'NotTableOwnerError'
+]
+
 const UNAUTHORIZED_ERRORS = [
     'InvalidCredentialsError'
 ]
 
 export const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunction): void => {
     if (err instanceof AppError) {
+        if (FORBIDDEN_ERRORS.includes(err.name)) {
+            res.status(403).json({ error: `Forbidden: ${err.message}` })
+            return
+        }
+
         let statusCode = 400
 
         if (NOT_FOUND_ERRORS.includes(err.name)) {

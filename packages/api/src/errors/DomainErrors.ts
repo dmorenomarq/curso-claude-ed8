@@ -228,3 +228,9 @@ export class TableNotOccupiedByClientError extends AppError {
     super('La mesa no está ocupada por este cliente')
   }
 }
+
+export class NotTableOwnerError extends AppError {
+  constructor() {
+    super('Only the client occupying the table can release it')
+  }
+}

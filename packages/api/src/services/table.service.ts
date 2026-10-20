@@ -5,10 +5,14 @@ import type { TableFilters, TableRepository } from '@repositories/table.reposito
 import type { OrderRepository } from '@repositories/order.repository.js'
 import type { RestaurantRepository } from '@repositories/restaurant.repository.js'
 import {
+    ClientAlreadySeatedError,
     DuplicatedTableNumberError,
+    InvalidPartySizeError,
     InvalidTableError,
+    NotTableOwnerError,
     RestaurantNotFoundError,
     TableInUseError,
+    TableNotAvailableError,
     TableNotFoundError
 } from '@errors/DomainErrors.js'
 
@@ -17,6 +21,11 @@ export interface TableInputDTO {
     capacity: number
     description?: string | null
     status?: TableStatusType
+}
+
+export interface TableActor {
+    id: string
+    role: string
 }
 
 export class TableService {
@@ -118,6 +127,72 @@ export class TableService {
         }
 
         await this.tableRepository.delete(table.id)
+    }
+
+    async listAvailable(restaurantId: string, partySize: number): Promise<Table[]> {
+        this.assertValidPartySize(partySize)
+        return this.tableRepository.findAvailable(restaurantId, partySize)
+    }
+
+    async getMine(restaurantId: string, clientId: string): Promise<Table> {
+        const table = await this.tableRepository.findByClient(restaurantId, clientId)
+        if (!table) {
+            throw new TableNotFoundError()
+        }
+        return table
+    }
+
+    async occupy(restaurantId: string, id: string, partySize: number, actor: TableActor): Promise<Table> {
+        const table = await this.getById(restaurantId, id)
+        this.assertValidPartySize(partySize)
+        if (partySize > table.capacity) {
+            throw new InvalidPartySizeError(`La mesa tiene capacidad para ${table.capacity} personas`)
+        }
+
+        const clientId = actor.role === 'cliente' ? actor.id : null
+        if (clientId) {
+            if (table.status === 'ocupada' && table.occupiedByClientId === clientId) {
+                return table
+            }
+            const seatedAt = await this.tableRepository.findByClient(restaurantId, clientId)
+            if (seatedAt) {
+                throw new ClientAlreadySeatedError(seatedAt.number, seatedAt.id)
+            }
+        }
+
+        const occupied = await this.tableRepository.occupy(table.id, partySize, clientId, new Date().toISOString())
+        if (!occupied) {
+            throw new TableNotAvailableError()
+        }
+        return this.getById(restaurantId, id)
+    }
+
+    async release(restaurantId: string, id: string, actor: TableActor, force = false): Promise<Table> {
+        const table = await this.getById(restaurantId, id)
+        const isClient = actor.role === 'cliente'
+
+        if (isClient && (table.status !== 'ocupada' || table.occupiedByClientId !== actor.id)) {
+            throw new NotTableOwnerError()
+        }
+        if (table.status === 'libre') {
+            return table
+        }
+
+        if (!(force && !isClient)) {
+            const pendingItems = await this.orderRepository.countPendingItemsByTable(table.id, table.occupiedAt)
+            if (pendingItems > 0) {
+                throw new TableInUseError('pedidos_pendientes', pendingItems)
+            }
+        }
+
+        await this.tableRepository.release(table.id, new Date().toISOString())
+        return this.getById(restaurantId, id)
+    }
+
+    private assertValidPartySize(partySize: unknown): asserts partySize is number {
+        if (typeof partySize !== 'number' || !Number.isInteger(partySize) || partySize < 1) {
+            throw new InvalidPartySizeError()
+        }
     }
 
     /** Devuelve la mesa con el nuevo estado aplicado (sin persistir), o la misma si ya lo tenía. */

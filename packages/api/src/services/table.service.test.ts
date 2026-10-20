@@ -10,7 +10,11 @@ import {
     TableNotFoundError,
     DuplicatedTableNumberError,
     TableInUseError,
-    RestaurantNotFoundError
+    RestaurantNotFoundError,
+    TableNotAvailableError,
+    ClientAlreadySeatedError,
+    InvalidPartySizeError,
+    NotTableOwnerError
 } from '@errors/DomainErrors.js'
 
 const makeTable = (overrides: Partial<Table> = {}): Table => ({
@@ -344,6 +348,185 @@ describe('TableService status changes', () => {
             const table = await service.update('r1', 't1', { number: 2, capacity: 6, status: 'reservada' })
 
             expect(table).toMatchObject({ number: 2, capacity: 6, status: 'reservada' })
+        })
+    })
+})
+
+describe('TableService occupancy', () => {
+    let tables: MockTableRepository
+    let orders: MockOrderRepository
+    let service: TableService
+
+    const client = { id: 'c1', role: 'cliente' }
+    const waiter = { id: 'w1', role: 'camarero' }
+
+    beforeEach(async () => {
+        ;({ tables, orders, service } = await buildService())
+    })
+
+    describe('listAvailable', () => {
+        it('returns free tables that fit the party ordered by capacity and number', async () => {
+            await tables.create(makeTable({ id: 'a', number: 1, capacity: 8 }))
+            await tables.create(makeTable({ id: 'b', number: 2, capacity: 4 }))
+            await tables.create(makeTable({ id: 'c', number: 3, capacity: 4, status: 'reservada' }))
+            await tables.create(makeTable({ id: 'd', number: 4, capacity: 2 }))
+
+            expect((await service.listAvailable('r1', 3)).map(t => t.id)).toEqual(['b', 'a'])
+        })
+
+        it('returns an empty list when nothing fits', async () => {
+            expect(await service.listAvailable('r1', 3)).toEqual([])
+        })
+
+        it.each([0, -2, 1.5, NaN, undefined, '3'])('rejects partySize %s', async partySize => {
+            await expect(service.listAvailable('r1', partySize as any)).rejects.toThrow(InvalidPartySizeError)
+        })
+    })
+
+    describe('getMine', () => {
+        it('returns the table occupied by the client', async () => {
+            await tables.create(makeTable())
+            await service.occupy('r1', 't1', 2, client)
+
+            expect((await service.getMine('r1', 'c1')).id).toBe('t1')
+        })
+
+        it('throws TableNotFoundError when the client has none', async () => {
+            await expect(service.getMine('r1', 'c1')).rejects.toThrow(TableNotFoundError)
+        })
+    })
+
+    describe('occupy', () => {
+        beforeEach(async () => {
+            await tables.create(makeTable({ id: 't1', number: 1, capacity: 4 }))
+            await tables.create(makeTable({ id: 't2', number: 2, capacity: 4 }))
+        })
+
+        it('occupies a free table for a client', async () => {
+            const table = await service.occupy('r1', 't1', 3, client)
+
+            expect(table).toMatchObject({ status: 'ocupada', partySize: 3, occupiedByClientId: 'c1' })
+            expect(table.occupiedAt).not.toBeNull()
+        })
+
+        it('leaves occupiedByClientId null when the staff occupies it', async () => {
+            const table = await service.occupy('r1', 't1', 2, waiter)
+
+            expect(table).toMatchObject({ status: 'ocupada', occupiedByClientId: null })
+        })
+
+        it('is idempotent for the same client and the same table', async () => {
+            const first = await service.occupy('r1', 't1', 3, client)
+            const second = await service.occupy('r1', 't1', 3, client)
+
+            expect(second).toEqual(first)
+        })
+
+        it('fails with ClientAlreadySeatedError when the client has another table', async () => {
+            await service.occupy('r1', 't1', 2, client)
+
+            const error = await service.occupy('r1', 't2', 2, client).catch(e => e)
+
+            expect(error).toBeInstanceOf(ClientAlreadySeatedError)
+            expect(error.details).toEqual({ tableId: 't1' })
+            expect((await tables.findById('t2'))?.status).toBe('libre')
+        })
+
+        it('fails with TableNotAvailableError when someone else took the table', async () => {
+            await service.occupy('r1', 't1', 2, { id: 'c2', role: 'cliente' })
+
+            await expect(service.occupy('r1', 't1', 2, client)).rejects.toThrow(TableNotAvailableError)
+        })
+
+        it('fails with TableNotAvailableError when the table is reserved', async () => {
+            await tables.update(makeTable({ id: 't1', status: 'reservada' }))
+
+            await expect(service.occupy('r1', 't1', 2, client)).rejects.toThrow(TableNotAvailableError)
+        })
+
+        it('only one of two simultaneous occupy calls succeeds', async () => {
+            const results = await Promise.allSettled([
+                service.occupy('r1', 't1', 2, { id: 'c2', role: 'cliente' }),
+                service.occupy('r1', 't1', 2, { id: 'c3', role: 'cliente' })
+            ])
+
+            expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1)
+            const rejected = results.find(r => r.status === 'rejected') as PromiseRejectedResult
+            expect(rejected.reason).toBeInstanceOf(TableNotAvailableError)
+        })
+
+        it('fails with InvalidPartySizeError when the party exceeds the capacity', async () => {
+            const error = await service.occupy('r1', 't1', 5, client).catch(e => e)
+
+            expect(error).toBeInstanceOf(InvalidPartySizeError)
+            expect(error.message).toBe('La mesa tiene capacidad para 4 personas')
+        })
+
+        it.each([0, -1, 1.5, undefined])('fails with InvalidPartySizeError for partySize %s', async partySize => {
+            await expect(service.occupy('r1', 't1', partySize as any, client)).rejects.toThrow(InvalidPartySizeError)
+        })
+
+        it('throws TableNotFoundError for an unknown table or another restaurant', async () => {
+            await tables.create(makeTable({ id: 'x', restaurantId: 'r2', number: 1 }))
+
+            await expect(service.occupy('r1', 'nope', 2, client)).rejects.toThrow(TableNotFoundError)
+            await expect(service.occupy('r1', 'x', 2, client)).rejects.toThrow(TableNotFoundError)
+        })
+    })
+
+    describe('release', () => {
+        beforeEach(async () => {
+            await tables.create(makeTable())
+            await service.occupy('r1', 't1', 2, client)
+        })
+
+        it('lets the occupying client release a table without lines', async () => {
+            const table = await service.release('r1', 't1', client)
+
+            expect(table).toMatchObject({ status: 'libre', partySize: null, occupiedByClientId: null, occupiedAt: null })
+            expect((await tables.findById('t1'))?.status).toBe('libre')
+        })
+
+        it('lets the staff release it', async () => {
+            expect((await service.release('r1', 't1', waiter)).status).toBe('libre')
+        })
+
+        it('forbids a client that is not the occupant', async () => {
+            await expect(service.release('r1', 't1', { id: 'c2', role: 'cliente' })).rejects.toThrow(NotTableOwnerError)
+            expect((await tables.findById('t1'))?.status).toBe('ocupada')
+        })
+
+        it('fails with TableInUseError when there are undelivered lines', async () => {
+            await orders.create(makeOrder('o1', 't1', ['pendiente', 'listo'], new Date(Date.now() + 1000)))
+
+            const error = await service.release('r1', 't1', waiter).catch(e => e)
+
+            expect(error).toBeInstanceOf(TableInUseError)
+            expect(error.details).toEqual({ reason: 'pedidos_pendientes', pendingItems: 2 })
+        })
+
+        it('a client can never force the release', async () => {
+            await orders.create(makeOrder('o1', 't1', ['pendiente'], new Date(Date.now() + 1000)))
+
+            await expect(service.release('r1', 't1', client, true)).rejects.toThrow(TableInUseError)
+        })
+
+        it('the staff can force the release', async () => {
+            await orders.create(makeOrder('o1', 't1', ['pendiente'], new Date(Date.now() + 1000)))
+
+            expect((await service.release('r1', 't1', waiter, true)).status).toBe('libre')
+        })
+
+        it('releasing a free table is a no-op for the staff', async () => {
+            await service.release('r1', 't1', waiter)
+
+            expect((await service.release('r1', 't1', waiter)).status).toBe('libre')
+        })
+
+        it('forbids a client releasing a free table', async () => {
+            await service.release('r1', 't1', client)
+
+            await expect(service.release('r1', 't1', client)).rejects.toThrow(NotTableOwnerError)
         })
     })
 })

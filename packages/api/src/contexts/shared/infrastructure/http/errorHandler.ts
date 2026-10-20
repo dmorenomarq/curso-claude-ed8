@@ -11,7 +11,11 @@ const NOT_FOUND_ERRORS = [
 
 const CONFLICT_ERRORS = [
     'DuplicatedTableNumberError',
-    'TableInUseError'
+    'TableInUseError',
+    'TableNotAvailableError',
+    'ClientAlreadySeatedError',
+    'TableNotOccupiedError',
+    'TableNotOccupiedByClientError'
 ]
 
 const UNAUTHORIZED_ERRORS = [

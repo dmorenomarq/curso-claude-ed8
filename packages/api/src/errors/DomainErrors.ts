@@ -195,3 +195,36 @@ export class TableInUseError extends AppError {
     this.details = { reason, pendingItems }
   }
 }
+
+export class TableNotAvailableError extends AppError {
+  constructor() {
+    super('La mesa ya no está disponible')
+  }
+}
+
+export class ClientAlreadySeatedError extends AppError {
+  public readonly details: { tableId: string }
+
+  constructor(tableNumber: number, tableId: string) {
+    super(`Ya tienes la mesa ${tableNumber} ocupada`)
+    this.details = { tableId }
+  }
+}
+
+export class InvalidPartySizeError extends AppError {
+  constructor(message?: string) {
+    super(message ?? 'El número de personas debe ser un entero mayor o igual que 1')
+  }
+}
+
+export class TableNotOccupiedError extends AppError {
+  constructor() {
+    super('La mesa no está ocupada')
+  }
+}
+
+export class TableNotOccupiedByClientError extends AppError {
+  constructor() {
+    super('La mesa no está ocupada por este cliente')
+  }
+}

@@ -4,7 +4,12 @@ import {
     InvalidTableError,
     TableNotFoundError,
     DuplicatedTableNumberError,
-    TableInUseError
+    TableInUseError,
+    TableNotAvailableError,
+    ClientAlreadySeatedError,
+    InvalidPartySizeError,
+    TableNotOccupiedError,
+    TableNotOccupiedByClientError
 } from '@errors/DomainErrors.js'
 
 function run(error: unknown) {
@@ -50,5 +55,49 @@ describe('errorHandler (mesas)', () => {
     ] as const)('TableInUseError with reason %s has a readable message', (reason, message) => {
         const { body } = run(new TableInUseError(reason, 0))
         expect(body).toMatchObject({ reason, pendingItems: 0, message })
+    })
+})
+
+describe('errorHandler (ocupación de mesas)', () => {
+    it('maps TableNotAvailableError to 409', () => {
+        const { status, body } = run(new TableNotAvailableError())
+        expect(status).toBe(409)
+        expect(body).toEqual({ error: 'TableNotAvailableError', message: 'La mesa ya no está disponible' })
+    })
+
+    it('maps ClientAlreadySeatedError to 409 with tableId', () => {
+        const { status, body } = run(new ClientAlreadySeatedError(2, 'table-2'))
+        expect(status).toBe(409)
+        expect(body).toEqual({
+            error: 'ClientAlreadySeatedError',
+            message: 'Ya tienes la mesa 2 ocupada',
+            tableId: 'table-2'
+        })
+    })
+
+    it('maps InvalidPartySizeError to 400', () => {
+        const { status, body } = run(new InvalidPartySizeError())
+        expect(status).toBe(400)
+        expect(body).toEqual({
+            error: 'InvalidPartySizeError',
+            message: 'El número de personas debe ser un entero mayor o igual que 1'
+        })
+    })
+
+    it('InvalidPartySizeError accepts a custom message', () => {
+        const { body } = run(new InvalidPartySizeError('La mesa tiene capacidad para 4 personas'))
+        expect(body.message).toBe('La mesa tiene capacidad para 4 personas')
+    })
+
+    it('maps TableNotOccupiedError to 409', () => {
+        const { status, body } = run(new TableNotOccupiedError())
+        expect(status).toBe(409)
+        expect(body.error).toBe('TableNotOccupiedError')
+    })
+
+    it('maps TableNotOccupiedByClientError to 409', () => {
+        const { status, body } = run(new TableNotOccupiedByClientError())
+        expect(status).toBe(409)
+        expect(body.error).toBe('TableNotOccupiedByClientError')
     })
 })

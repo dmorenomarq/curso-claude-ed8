@@ -2,12 +2,20 @@ import { randomUUID } from 'crypto'
 import type { Order, OrderItem } from '@models/order.model.js'
 import { normalizeOrderStatus } from '@models/order.model.js'
 import type { OrderRepository } from '@repositories/order.repository.js'
-import { RestaurantIdRequiredError, OrderNotFoundError } from '@errors/DomainErrors.js'
+import type { TableRepository } from '@repositories/table.repository.js'
+import {
+    RestaurantIdRequiredError,
+    OrderNotFoundError,
+    TableNotFoundError,
+    TableNotOccupiedError,
+    TableNotOccupiedByClientError
+} from '@errors/DomainErrors.js'
 
 export interface CreateOrderRequest {
     restaurantId: string
     tableId: string | null
     clientId: string | null
+    userRole?: string
     items: {
         dishId: string
         quantity: number
@@ -16,12 +24,17 @@ export interface CreateOrderRequest {
 }
 
 export class OrderService {
-    constructor(private readonly orderRepository: OrderRepository) {}
+    constructor(
+        private readonly orderRepository: OrderRepository,
+        private readonly tableRepository: TableRepository
+    ) {}
 
     async create(request: CreateOrderRequest): Promise<Order> {
         if (!request.restaurantId || request.restaurantId.trim() === '') {
             throw new RestaurantIdRequiredError()
         }
+
+        const tableNumber = await this.resolveTableNumber(request)
 
         const items: OrderItem[] = []
         for (const item of request.items) {
@@ -40,6 +53,7 @@ export class OrderService {
             id: randomUUID(),
             restaurantId: request.restaurantId,
             tableId: request.tableId,
+            tableNumber,
             clientId: request.clientId,
             createdAt: new Date(),
             items
@@ -48,6 +62,27 @@ export class OrderService {
         await this.orderRepository.create(order)
 
         return order
+    }
+
+    private async resolveTableNumber(request: CreateOrderRequest): Promise<number | null> {
+        if (!request.tableId) {
+            return null
+        }
+
+        const table = await this.tableRepository.findById(request.tableId)
+        if (!table || table.restaurantId !== request.restaurantId) {
+            throw new TableNotFoundError()
+        }
+
+        if (request.userRole === 'cliente') {
+            if (table.status !== 'ocupada' || table.occupiedByClientId !== request.clientId) {
+                throw new TableNotOccupiedByClientError()
+            }
+        } else if (table.status !== 'ocupada') {
+            throw new TableNotOccupiedError()
+        }
+
+        return table.number
     }
 
     async listActive(restaurantId: string): Promise<Order[]> {

@@ -530,3 +530,53 @@ describe('TableService occupancy', () => {
         })
     })
 })
+
+describe('TableService orders', () => {
+    let tables: MockTableRepository
+    let orders: MockOrderRepository
+    let service: TableService
+
+    const occupiedAt = '2026-10-20T13:00:00.000Z'
+
+    beforeEach(async () => {
+        ;({ tables, orders, service } = await buildService())
+        await tables.create(makeTable({
+            id: 't1', number: 1, status: 'ocupada', partySize: 2, occupiedByClientId: 'c1', occupiedAt
+        }))
+        await tables.create(makeTable({ id: 't2', number: 2 }))
+        await orders.create(makeOrder('old', 't1', ['entregado'], new Date('2026-10-20T11:00:00.000Z')))
+        await orders.create(makeOrder('done', 't1', ['entregado'], new Date('2026-10-20T13:10:00.000Z')))
+        await orders.create(makeOrder('open', 't1', ['entregado', 'listo'], new Date('2026-10-20T13:20:00.000Z')))
+    })
+
+    describe('listOrders', () => {
+        it('returns the orders of the current occupation, delivered ones included', async () => {
+            const result = await service.listOrders('r1', 't1')
+
+            expect(result.map(o => o.id)).toEqual(['done', 'open'])
+        })
+
+        it('returns an empty list when the table is not occupied', async () => {
+            expect(await service.listOrders('r1', 't2')).toEqual([])
+        })
+
+        it('throws TableNotFoundError for an unknown table', async () => {
+            await expect(service.listOrders('r1', 'nope')).rejects.toThrow(TableNotFoundError)
+        })
+    })
+
+    describe('getAll with activeOrders', () => {
+        it('adds the active orders of the current occupation to occupied tables only', async () => {
+            const result = await service.getAll('r1', {}, { includeActiveOrders: true })
+
+            expect(result[0]?.activeOrders?.map(o => o.id)).toEqual(['open'])
+            expect(result[1]).not.toHaveProperty('activeOrders')
+        })
+
+        it('does not add activeOrders by default', async () => {
+            const result = await service.getAll('r1')
+
+            expect(result[0]).not.toHaveProperty('activeOrders')
+        })
+    })
+})

@@ -36,6 +36,8 @@ export interface OrderRepository {
     updateItemStatus(orderId: string, itemId: string, status: string): Promise<void>
     findActiveByRestaurant(restaurantId: string): Promise<Order[]>
     findByClientId(clientId: string): Promise<Order[]>
+    /** Pedidos de una mesa (más antiguos primero); con `since`, solo los creados desde esa fecha ISO. */
+    findByTable(tableId: string, since: string | null, onlyActive?: boolean): Promise<Order[]>
     /** Líneas sin entregar de los pedidos de una mesa; con `since`, solo pedidos creados desde esa fecha ISO. */
     countPendingItemsByTable(tableId: string, since: string | null): Promise<number>
 }
@@ -139,6 +141,31 @@ export class SqliteOrderRepository implements OrderRepository {
             })
         }
 
+        return orders
+    }
+
+    async findByTable(tableId: string, since: string | null, onlyActive = false): Promise<Order[]> {
+        const orderRows = await this.db.all<OrderRow>(
+            `SELECT o.*
+             FROM orders o
+             WHERE o.table_id = ? AND (? IS NULL OR o.created_at >= ?)
+               AND (? = 0 OR EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id AND oi.status != 'entregado'))
+             ORDER BY o.created_at ASC`,
+            [tableId, since, since, onlyActive ? 1 : 0]
+        )
+
+        const orders: Order[] = []
+        for (const row of orderRows) {
+            const items = await this.getOrderItems(row.id)
+            orders.push({
+                id: row.id,
+                restaurantId: row.restaurant_id,
+                tableId: row.table_id,
+                clientId: row.client_id,
+                createdAt: new Date(row.created_at),
+                items
+            })
+        }
         return orders
     }
 

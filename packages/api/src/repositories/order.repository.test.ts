@@ -65,4 +65,37 @@ describe('SqliteOrderRepository (mesas)', () => {
             expect(await repo.countPendingItemsByTable('t9', null)).toBe(0)
         })
     })
+
+    describe('findByTable', () => {
+        it('returns the orders of the table with their lines, oldest first', async () => {
+            await repo.create(makeOrder('o2', 't1', '2026-10-20T13:20:00.000Z', ['entregado']))
+            await repo.create(makeOrder('o1', 't1', '2026-10-20T13:10:00.000Z', ['pendiente', 'listo']))
+            await repo.create(makeOrder('o3', 't2', '2026-10-20T13:15:00.000Z', ['pendiente']))
+
+            const found = await repo.findByTable('t1', null)
+
+            expect(found.map(o => o.id)).toEqual(['o1', 'o2'])
+            expect(found[0]?.items.map(i => i.status).sort()).toEqual(['listo', 'pendiente'])
+            expect(found[0]?.items[0]).toMatchObject({ dishName: 'Paella', dishPrice: 12, dishCategory: 'principal' })
+        })
+
+        it('only returns orders created since the given date', async () => {
+            await repo.create(makeOrder('old', 't1', '2026-10-20T11:00:00.000Z', ['entregado']))
+            await repo.create(makeOrder('new', 't1', '2026-10-20T13:10:00.000Z', ['entregado']))
+
+            const found = await repo.findByTable('t1', '2026-10-20T13:00:00.000Z')
+
+            expect(found.map(o => o.id)).toEqual(['new'])
+        })
+
+        it('with onlyActive only returns orders with an undelivered line', async () => {
+            await repo.create(makeOrder('done', 't1', '2026-10-20T13:10:00.000Z', ['entregado', 'entregado']))
+            await repo.create(makeOrder('open', 't1', '2026-10-20T13:20:00.000Z', ['entregado', 'preparando']))
+
+            const found = await repo.findByTable('t1', null, true)
+
+            expect(found.map(o => o.id)).toEqual(['open'])
+            expect(found[0]?.items).toHaveLength(2)
+        })
+    })
 })

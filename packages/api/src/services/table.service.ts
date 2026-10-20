@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto'
+import type { Order } from '@models/order.model.js'
 import type { Table, TableStatusType } from '@models/table.model.js'
 import { normalizeTableStatus, validateTableCapacity, validateTableNumber } from '@models/table.model.js'
 import type { TableFilters, TableRepository } from '@repositories/table.repository.js'
@@ -66,8 +67,29 @@ export class TableService {
         return table
     }
 
-    async getAll(restaurantId: string, filters: TableFilters = {}): Promise<Table[]> {
-        return this.tableRepository.findByRestaurant(restaurantId, filters)
+    async getAll(
+        restaurantId: string,
+        filters: TableFilters = {},
+        options: { includeActiveOrders?: boolean } = {}
+    ): Promise<Table[]> {
+        const tables = await this.tableRepository.findByRestaurant(restaurantId, filters)
+        if (!options.includeActiveOrders) {
+            return tables
+        }
+
+        return Promise.all(tables.map(async table => {
+            if (table.status !== 'ocupada') return table
+            const activeOrders = await this.orderRepository.findByTable(table.id, table.occupiedAt, true)
+            return { ...table, activeOrders }
+        }))
+    }
+
+    async listOrders(restaurantId: string, id: string): Promise<Order[]> {
+        const table = await this.getById(restaurantId, id)
+        if (table.status !== 'ocupada') {
+            return []
+        }
+        return this.orderRepository.findByTable(table.id, table.occupiedAt)
     }
 
     async getById(restaurantId: string, id: string): Promise<Table> {

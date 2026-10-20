@@ -1,50 +1,43 @@
 ---
 name: plan-feature
-description: Planifica un nuevo desarrollo, una corrección de código (bugfix) o un refactor, generando un plan con objetivo, tareas de 5-10 minutos y criterios de aceptación. Úsala cuando el usuario pida planificar, diseñar el enfoque o desglosar en tareas una feature, un fix o un refactor antes de implementarlo.
+description: Planifica un nuevo desarrollo, una corrección de código (bug) o un refactor, generando un plan con objetivo, tareas de 5-10 minutos y criterios de aceptación. Úsala cuando el usuario pida planificar, diseñar o desglosar un cambio antes de implementarlo.
+argument-hint: "[descripción del desarrollo, corrección o refactor]"
+allowed-tools: Read, Grep, Glob, Write, Bash(git log:*), Bash(git status:*), Bash(git diff:*)
 ---
 
-# plan-feature
+Planifica el cambio que describe el usuario. **No implementes nada**: el resultado es solo el plan (que se guarda en `docs/plans/`).
 
-Genera un plan de trabajo claro y accionable para una feature, corrección o refactor, siguiendo siempre la estructura de [templates.md](templates.md).
+Cambio a planificar: $ARGUMENTS
 
-## Cuándo usarla
+## Pasos
 
-- "Planifica la feature X", "desglosa esta corrección en tareas", "haz un plan para refactorizar Y".
-- Antes de implementar cualquier cambio no trivial.
-
-No implementes código: esta skill solo planifica.
-
-## Proceso
-
-1. **Entender la petición.** Identifica el tipo: `feature`, `fix` o `refactor`. Si el objetivo es ambiguo o falta información que cambie el plan de forma sustancial, haz como máximo 1-3 preguntas concretas; si no, asume valores razonables y decláralos en el plan.
-2. **Explorar el código.** Revisa los archivos, módulos y tests relacionados antes de planificar (README, estructura, convenciones existentes). Las tareas deben referenciar rutas reales del proyecto, no inventadas.
-3. **Redactar el plan** usando exactamente la estructura de `templates.md`.
-4. **Validar el plan** con la checklist de abajo antes de entregarlo.
-5. **Entregar.** Muestra el plan al usuario. Guárdalo como archivo solo si lo pide (por defecto `docs/plans/<slug>.md`).
+1. **Entiende la petición.** Identifica si es un `feature` (desarrollo nuevo), un `fix` (corrección) o un `refactor`. Si la petición es ambigua en algo que cambia el plan de forma sustancial, pregunta al usuario con `AskUserQuestion` antes de seguir; si hay un valor por defecto razonable, úsalo y anótalo como supuesto.
+2. **Explora el código** con `Read`, `Grep` y `Glob` para basar el plan en lo que existe de verdad: qué archivos se tocan, qué clases y métodos se reutilizan, qué patrones hay que imitar. No inventes archivos ni métodos.
+3. **Respeta las convenciones del proyecto** (`CLAUDE.md`) al definir las tareas:
+   - Arquitectura por capas `routes → controllers → services → repositories → models`; cada capa solo habla con la inmediatamente inferior.
+   - Clases con métodos en `snake_case`, CommonJS, sin librerías externas si hay solución nativa de Node, SQLite solo desde repositories con `node:sqlite`.
+   - Si el cambio crea o modifica un endpoint que devuelve un listado, lee `docs/api/pagination.md` y aplica sus convenciones.
+   - Las variables de entorno se leen solo en `src/config.js`.
+4. **Redacta el plan** siguiendo exactamente la estructura de [templates.md](templates.md). Usa la plantilla del tipo que corresponda y no añadas ni quites secciones.
+5. **Guarda el plan** en `docs/plans/<tipo>-<slug>.md` (crea la carpeta si no existe), donde `<tipo>` es `feature`, `fix` o `refactor` y `<slug>` es un resumen corto en minúsculas, con guiones y sin tildes (por ejemplo `docs/plans/refactor-middleware-errores.md`). Si ya existe un archivo con ese nombre, no lo sobrescribas sin avisar al usuario.
+6. **Muestra el plan** al usuario en la conversación e indica la ruta del archivo guardado.
 
 ## Reglas para las tareas
 
-- Cada tarea debe poder completarse en **5-10 minutos**. Si estimas más, divídela. Si es menos de 5, agrúpala con otra afín.
-- Cada tarea es una acción concreta y verificable, empezando por un verbo (Crear, Añadir, Renombrar, Escribir test...).
-- Indica los archivos afectados y cómo comprobar que la tarea está hecha.
-- Ordénalas por dependencias; marca cuáles pueden hacerse en paralelo si aplica.
-- Incluye las tareas de tests y documentación dentro del flujo, no como añadido final vago.
-- Por tipo:
-  - **fix**: primero reproducir el fallo (test que falla), luego corregir, luego verificar que no hay regresiones.
-  - **refactor**: asegurar cobertura de tests previa, cambios pequeños sin alterar comportamiento, verificar tras cada paso.
-  - **feature**: contrato/interfaz primero, luego lógica, luego integración, tests y docs.
+- **Duración:** cada tarea debe poder hacerse en **5-10 minutos**. Si una tarea parece mayor, divídela. Si es menor de unos 5 minutos, agrúpala con otra relacionada.
+- **Una sola intención:** cada tarea hace una cosa concreta y verificable (por ejemplo, "añadir `find_by_id` en `VendehumoRepository`"), no "implementar el servicio".
+- **Orden de ejecución:** ordénalas de modo que cada una pueda hacerse con lo anterior ya terminado. Para el código nuevo, ve de abajo arriba por las capas (models → repositories → services → controllers → routes).
+- **Concretas:** indica el archivo o los archivos afectados y el método o clase cuando se conozcan.
+- **Estimación:** indica el tiempo de cada tarea en minutos (entre 5 y 10).
+- **Pruebas:** hoy no hay test runner configurado; si el plan incluye pruebas, usa `node:test` y `node:assert` y dedica tareas propias a ellas.
 
 ## Reglas para los criterios de aceptación
 
-- Observables y comprobables (sí/no), formulados como checklist `- [ ]`.
-- Cubren el comportamiento esperado, casos límite relevantes y que los tests pasan.
-- Para refactors, incluye explícitamente "el comportamiento externo no cambia".
+- Deben ser **comprobables**: alguien debe poder decir sí o no tras revisarlos.
+- Cubren el comportamiento esperado, los casos de error (códigos de estado HTTP, mensajes) y el cumplimiento de las convenciones del proyecto.
+- Evita criterios vagos como "funciona bien" o "el código es limpio".
 
-## Checklist de validación
+## Estilo
 
-- [ ] Sigue la estructura de `templates.md` sin omitir secciones.
-- [ ] El objetivo cabe en 1-3 frases y explica el porqué.
-- [ ] Ninguna tarea supera los 10 minutos estimados.
-- [ ] Las rutas de archivo mencionadas existen o se marcan como "nuevo".
-- [ ] Los criterios de aceptación son verificables.
-- [ ] Supuestos y riesgos declarados.
+- Escribe en español.
+- Sé breve: el plan debe poder leerse de un vistazo.

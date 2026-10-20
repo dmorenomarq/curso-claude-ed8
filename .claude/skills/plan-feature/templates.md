@@ -1,78 +1,100 @@
-# Plantilla de plan
+# Plantillas de plan
 
-Usa esta estructura exacta. Elimina los comentarios `<!-- -->` al rellenarla.
+Usa la plantilla que corresponda al tipo de cambio. Las tres comparten la misma estructura: **Objetivo**, **Tareas** y **Criterios de aceptación**. Rellena todos los apartados y sustituye cada texto entre `<...>`.
+
+Cada tarea debe durar **5-10 minutos**.
 
 ---
 
-```markdown
-# Plan: <título corto>
+## Plantilla: desarrollo nuevo (feature)
 
-**Tipo:** feature | fix | refactor
-**Tiempo total estimado:** <suma de las tareas, ej. 45 min>
+```markdown
+# Plan: <título corto del desarrollo>
+
+**Tipo:** feature
+**Tiempo total estimado:** <suma de las tareas> min
 
 ## Objetivo
 
-<!-- 1-3 frases: qué se quiere conseguir y por qué. -->
+<Qué se quiere conseguir y por qué, en 1-3 frases. Indica el resultado visible para quien use la API.>
 
-## Contexto y supuestos
-
-<!-- Breve: archivos/módulos implicados, decisiones asumidas, riesgos. Omitir si no aporta. -->
-
-- Archivos implicados: `ruta/archivo.ext`, ...
-- Supuestos: ...
-- Riesgos: ...
+**Supuestos:** <decisiones tomadas por defecto; omite la línea si no hay>
+**Fuera de alcance:** <lo que explícitamente no se hace; omite la línea si no hay>
 
 ## Tareas
 
-<!-- Cada tarea: 5-10 min, acción concreta y verificable. Ordenadas por dependencias. -->
-
-| # | Tarea | Archivos | Estimación | Verificación |
-|---|-------|----------|-----------|--------------|
-| 1 | <Verbo + acción concreta> | `ruta/archivo` | 5 min | <cómo se comprueba> |
-| 2 | ... | ... | 10 min | ... |
+| # | Tarea | Archivos | Min | Hecha |
+|---|-------|----------|-----|-------|
+| 1 | <acción concreta y verificable> | `<ruta/archivo.js>` | <5-10> | [ ] |
+| 2 | <acción concreta y verificable> | `<ruta/archivo.js>` | <5-10> | [ ] |
+| 3 | <acción concreta y verificable> | `<ruta/archivo.js>` | <5-10> | [ ] |
 
 ## Criterios de aceptación
 
-<!-- Observables y verificables (sí/no). -->
-
-- [ ] <Comportamiento esperado 1>
-- [ ] <Caso límite relevante>
-- [ ] Los tests existentes y nuevos pasan
-- [ ] <Para refactor: el comportamiento externo no cambia>
+- [ ] <comportamiento esperado, comprobable>
+- [ ] <caso de error con su código de estado y mensaje>
+- [ ] <cumple las convenciones de capas y nombres del proyecto>
 ```
 
 ---
 
-## Ejemplo (fix)
+## Plantilla: corrección (fix)
 
 ```markdown
-# Plan: Corregir cálculo de IVA en facturas con descuento
+# Plan: <título corto del error>
 
 **Tipo:** fix
-**Tiempo total estimado:** 30 min
+**Tiempo total estimado:** <suma de las tareas> min
 
 ## Objetivo
 
-El IVA se calcula sobre el importe sin descuento, lo que genera facturas con totales incorrectos. Debe calcularse sobre la base imponible ya descontada.
+<Qué falla, cuál es la causa conocida o probable y cuál es el comportamiento correcto, en 1-3 frases.>
 
-## Contexto y supuestos
-
-- Archivos implicados: `packages/billing/src/invoice.js`, `packages/billing/test/invoice.test.js`
-- Supuestos: el descuento se aplica antes del IVA.
-- Riesgos: facturas ya emitidas no se recalculan.
+**Cómo reproducirlo:** <pasos o petición concreta que provoca el error>
+**Fuera de alcance:** <lo que no se toca; omite la línea si no hay>
 
 ## Tareas
 
-| # | Tarea | Archivos | Estimación | Verificación |
-|---|-------|----------|-----------|--------------|
-| 1 | Escribir test que reproduce el fallo con descuento del 10% | `test/invoice.test.js` | 8 min | El test falla con el código actual |
-| 2 | Aplicar el descuento antes de calcular el IVA | `src/invoice.js` | 10 min | El test nuevo pasa |
-| 3 | Añadir test de caso límite (descuento 0% y 100%) | `test/invoice.test.js` | 7 min | Ambos tests pasan |
-| 4 | Ejecutar la suite completa y revisar regresiones | — | 5 min | Todos los tests en verde |
+| # | Tarea | Archivos | Min | Hecha |
+|---|-------|----------|-----|-------|
+| 1 | Reproducir el error y confirmar la causa | `<ruta/archivo.js>` | <5-10> | [ ] |
+| 2 | <corregir la causa de forma concreta> | `<ruta/archivo.js>` | <5-10> | [ ] |
+| 3 | <añadir o ajustar una prueba que habría detectado el error> | `<ruta/archivo.test.js>` | <5-10> | [ ] |
 
 ## Criterios de aceptación
 
-- [ ] Una factura de 100 € con 10% de descuento y 21% de IVA da un total de 108,90 €
-- [ ] Descuento 0% y 100% se calculan correctamente
-- [ ] Los tests existentes y nuevos pasan
+- [ ] El error ya no se reproduce con los pasos indicados.
+- [ ] <el comportamiento correcto esperado, comprobable>
+- [ ] <el resto del comportamiento relacionado sigue igual (sin regresiones)>
+```
+
+---
+
+## Plantilla: refactor
+
+```markdown
+# Plan: <título corto del refactor>
+
+**Tipo:** refactor
+**Tiempo total estimado:** <suma de las tareas> min
+
+## Objetivo
+
+<Qué se quiere mejorar en el código (estructura, duplicación, legibilidad…) y por qué, en 1-3 frases. El comportamiento externo de la API no cambia.>
+
+**Fuera de alcance:** <lo que no se toca; omite la línea si no hay>
+
+## Tareas
+
+| # | Tarea | Archivos | Min | Hecha |
+|---|-------|----------|-----|-------|
+| 1 | <paso pequeño que deja el código funcionando> | `<ruta/archivo.js>` | <5-10> | [ ] |
+| 2 | <paso pequeño que deja el código funcionando> | `<ruta/archivo.js>` | <5-10> | [ ] |
+| 3 | <paso pequeño que deja el código funcionando> | `<ruta/archivo.js>` | <5-10> | [ ] |
+
+## Criterios de aceptación
+
+- [ ] Las respuestas de la API (cuerpos y códigos de estado) son idénticas a las de antes.
+- [ ] <la mejora buscada, comprobable: por ejemplo, ya no hay código duplicado en X>
+- [ ] <cumple las convenciones de capas y nombres del proyecto>
 ```

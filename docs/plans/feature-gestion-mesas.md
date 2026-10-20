@@ -37,7 +37,7 @@ Que el administrador gestione las mesas de un restaurante (CRUD), que el cliente
 | 21 | [ADM] Formulario crear/editar con validaciones y mensajes de error 400/409 en español | `packages/web-admin/src/app/features/tables/table-form/` | 10 | [ ] |
 | 22 | [ADM] Borrado con confirmación, diálogo de cambio de estado con `force` y errores `TableInUseError` | `packages/web-admin/src/app/features/tables/` | 8 | [ ] |
 | 23 | [ADM] Rutas lazy `tables`, `tables/new`, `tables/:id/edit` y entrada en el menú | `packages/web-admin/src/app/app.routes.ts`, `core/layout/` | 6 | [ ] |
-| 24 | [EMP] `Order.tableNumber`, modelo `Table` y `TableService` (`GET` con `include=activeOrders`, `PATCH` de estado, pedidos de la mesa) con test | `packages/web-empleados/src/app/features/tables/models/`, `services/`, `features/orders/models/order.model.ts` | 10 | [ ] |
+| 24 | [EMP] `Order.tableNumber`, modelo `Table` y `TableService` (`GET` con `include=activeOrders`, `PATCH` de estado, pedidos de la mesa) con test | `packages/web-empleados/src/app/features/tables/models/`, `services/`, `features/orders/models/order.model.ts` | 10 | [x] |
 | 25 | [EMP] `TableStore` con polling de 30 s según el patrón de `OrderStore` con test | `packages/web-empleados/src/app/features/tables/store/table.store.ts` | 10 | [ ] |
 | 26 | [EMP] Pantalla de salón: mesas por estado con selector de estado y forzado para manager ante `TableInUseError` | `packages/web-empleados/src/app/features/tables/table-board/` | 10 | [ ] |
 | 27 | [EMP] Detalle de mesa ocupada con los pedidos y el estado de cada línea | `packages/web-empleados/src/app/features/tables/table-detail/` | 10 | [ ] |

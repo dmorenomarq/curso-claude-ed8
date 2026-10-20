@@ -27,7 +27,7 @@ Que el administrador gestione las mesas de un restaurante (CRUD), que el cliente
 | 11 | [API] Repositorio y servicio de pedidos: `findByTable` (ocupación actual, `createdAt >= occupiedAt`), `activeOrders` de mesas ocupadas e `include=activeOrders` con test | `packages/api/src/repositories/order.repository.ts`, `services/table.service.ts` | 10 | [x] |
 | 12 | [API] `Order.tableNumber` en modelo y respuestas de `/orders/*` | `packages/api/src/models/order.model.ts`, `repositories/order.repository.ts` | 8 | [x] |
 | 13 | [API] `OrderService.create_order`: validar `tableId` (404 si no existe o es de otro restaurante; 409 si no está ocupada o no la ocupa ese cliente) con test | `packages/api/src/services/order.service.ts`, `order.service.test.ts` | 10 | [x] |
-| 14 | [API] Controlador de mesas con códigos de estado (201/200/204, query params, `force`) | `packages/api/src/controllers/table.controller.ts` | 10 | [ ] |
+| 14 | [API] Controlador de mesas con códigos de estado (201/200/204, query params, `force`) | `packages/api/src/controllers/table.controller.ts` | 10 | [x] |
 | 15 | [API] Rutas con `authorize` por rol según el yaml (`/available` y `/mine` antes de `/:id`; filtro de `restaurantId` del JWT para no admin) y montaje en `app.ts` | `packages/api/src/routes/table.routes.ts`, `packages/api/src/app.ts` | 10 | [ ] |
 | 16 | [API] Test de integración (supertest o equivalente del repo) del flujo cliente: available → occupy → `POST /orders` y carrera 409 | `packages/api/src/routes/table.routes.test.ts` | 10 | [ ] |
 | 17 | [API] Seed con mesas de ejemplo y comprobación del yaml con `redocly lint` | `packages/api/src/scripts/seed.ts`, `packages/api/gestion-mesas.openapi.yaml` | 6 | [ ] |

@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing'
 import { ActivatedRoute, provideRouter } from '@angular/router'
 import { of } from 'rxjs'
 import { LucideAngularModule, Plus, Edit, Trash2, Utensils } from 'lucide-angular'
+import { AuthStore } from '@resttek/web-shared'
 import { TableStore } from '../../store/table.store'
 import { TableListComponent } from './table-list.component'
 import type { Table, TableFilters } from '../../models/table.model'
@@ -32,8 +33,11 @@ describe('TableListComponent', () => {
     filters: signal<TableFilters>({}),
     loadByRestaurant: vi.fn(),
     setFilters: vi.fn(),
-    clearFilters: vi.fn()
+    clearFilters: vi.fn(),
+    delete: vi.fn(),
+    updateStatus: vi.fn()
   }
+  const role = signal<string | null>('admin')
 
   function render() {
     TestBed.configureTestingModule({
@@ -41,6 +45,7 @@ describe('TableListComponent', () => {
         provideRouter([]),
         importProvidersFrom(LucideAngularModule.pick({ Plus, Edit, Trash2, Utensils })),
         { provide: TableStore, useValue: store },
+        { provide: AuthStore, useValue: { userRole: role } },
         { provide: ActivatedRoute, useValue: { parent: { paramMap: of({ get: () => 'r1' }) } } }
       ]
     })
@@ -54,6 +59,10 @@ describe('TableListComponent', () => {
     tables.set([])
     store.loading.set(false)
     store.error.set(null)
+    store.delete.mockResolvedValue(undefined)
+    store.updateStatus.mockResolvedValue(undefined)
+    role.set('admin')
+    vi.restoreAllMocks()
   })
 
   it('carga las mesas del restaurante de la ruta', () => {
@@ -119,5 +128,85 @@ describe('TableListComponent', () => {
     expect(store.setFilters).toHaveBeenCalledWith({ minCapacity: null })
     fixture.componentInstance.onCapacityFilter('abc')
     expect(store.setFilters).toHaveBeenLastCalledWith({ minCapacity: null })
+  })
+
+  describe('borrado', () => {
+    const table = makeTable({ id: 't2', number: 2 })
+
+    it('no borra si el usuario cancela la confirmación', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(false)
+      await render().componentInstance.onDelete(table)
+      expect(store.delete).not.toHaveBeenCalled()
+    })
+
+    it('borra la mesa tras confirmar', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      await render().componentInstance.onDelete(table)
+      expect(store.delete).toHaveBeenCalledWith('r1', 't2')
+    })
+
+    it('muestra el mensaje de TableInUseError al borrar una mesa en uso', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      store.delete.mockRejectedValue({
+        status: 409,
+        error: { error: 'TableInUseError', message: 'No se puede eliminar una mesa ocupada', reason: 'ocupada', pendingItems: 0 }
+      })
+      const cmp = render().componentInstance
+      await cmp.onDelete(table)
+      expect(cmp.actionError()).toBe('No se puede eliminar una mesa ocupada')
+    })
+  })
+
+  describe('cambio de estado', () => {
+    const table = makeTable({ id: 't2', number: 2, status: 'ocupada' })
+    const inUse = {
+      status: 409,
+      error: { error: 'TableInUseError', message: 'La mesa tiene pedidos sin entregar', reason: 'pedidos_pendientes', pendingItems: 2 }
+    }
+
+    it('cambia el estado sin forzar', async () => {
+      await render().componentInstance.onChangeStatus(table, 'reservada')
+      expect(store.updateStatus).toHaveBeenCalledWith('r1', 't2', 'reservada')
+    })
+
+    it('no hace nada si el estado elegido es el actual', async () => {
+      await render().componentInstance.onChangeStatus(table, 'ocupada')
+      expect(store.updateStatus).not.toHaveBeenCalled()
+    })
+
+    it('ante TableInUseError pregunta y fuerza si el usuario confirma', async () => {
+      store.updateStatus.mockRejectedValueOnce(inUse).mockResolvedValueOnce(undefined)
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+      const cmp = render().componentInstance
+      await cmp.onChangeStatus(table, 'libre')
+      expect(confirm).toHaveBeenCalledWith(expect.stringContaining('La mesa tiene pedidos sin entregar'))
+      expect(store.updateStatus).toHaveBeenLastCalledWith('r1', 't2', 'libre', true)
+      expect(cmp.actionError()).toBeNull()
+    })
+
+    it('ante TableInUseError no fuerza si el usuario cancela', async () => {
+      store.updateStatus.mockRejectedValue(inUse)
+      vi.spyOn(window, 'confirm').mockReturnValue(false)
+      const cmp = render().componentInstance
+      await cmp.onChangeStatus(table, 'libre')
+      expect(store.updateStatus).toHaveBeenCalledTimes(1)
+    })
+
+    it('un usuario sin rol admin/manager no puede forzar: solo ve el mensaje', async () => {
+      role.set('camarero')
+      store.updateStatus.mockRejectedValue(inUse)
+      const confirm = vi.spyOn(window, 'confirm')
+      const cmp = render().componentInstance
+      await cmp.onChangeStatus(table, 'libre')
+      expect(confirm).not.toHaveBeenCalled()
+      expect(cmp.actionError()).toBe('La mesa tiene pedidos sin entregar')
+    })
+
+    it('otros errores se muestran con su mensaje', async () => {
+      store.updateStatus.mockRejectedValue({ status: 403, error: { error: 'Forbidden' } })
+      const cmp = render().componentInstance
+      await cmp.onChangeStatus(table, 'libre')
+      expect(cmp.actionError()).toBe('No tienes permisos para realizar esta acción.')
+    })
   })
 })

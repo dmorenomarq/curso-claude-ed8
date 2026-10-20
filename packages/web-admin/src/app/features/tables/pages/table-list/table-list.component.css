@@ -17,25 +17,17 @@
   color: var(--text-secondary);
 }
 
-.status-libre {
-  background: var(--green-glow);
-  color: var(--green-light);
-}
-
-.status-ocupada {
-  background: var(--red-glow);
-  color: var(--red);
-}
-
-.status-reservada {
-  background: rgba(245, 158, 11, 0.12);
-  color: #f59e0b;
-}
-
 select.form-control {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b92a8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 32px;
+}
+
+.status-select {
+  width: auto;
+  min-width: 130px;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }

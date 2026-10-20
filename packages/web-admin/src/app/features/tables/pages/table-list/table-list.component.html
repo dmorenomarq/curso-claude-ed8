@@ -7,6 +7,10 @@
     </a>
   </div>
 
+  @if (actionError()) {
+    <div class="alert-error">{{ actionError() }}</div>
+  }
+
   <div class="filters">
     <div class="form-group">
       <label for="statusFilter">Estado</label>
@@ -51,13 +55,22 @@
               <td class="table-number">{{ t.number }}</td>
               <td>{{ t.description ?? '—' }}</td>
               <td>{{ t.capacity }}</td>
-              <td><span [class]="'badge status-' + t.status">{{ statusLabel(t.status) }}</span></td>
+              <td>
+                <select class="form-control status-select" [value]="t.status" (change)="onChangeStatus(t, $any($event.target).value)" [attr.aria-label]="'Estado de la mesa ' + t.number">
+                  @for (s of statuses; track s) {
+                    <option [value]="s" [selected]="s === t.status">{{ statusLabel(s) }}</option>
+                  }
+                </select>
+              </td>
               <td class="occupancy">{{ occupancy(t) }}</td>
               <td>
                 <div class="actions">
                   <a [routerLink]="[t.id, 'edit']" class="btn btn-secondary btn-sm">
                     <lucide-icon name="edit" [size]="14"></lucide-icon>
                   </a>
+                  <button class="btn btn-danger btn-sm" (click)="onDelete(t)">
+                    <lucide-icon name="trash-2" [size]="14"></lucide-icon>
+                  </button>
                 </div>
               </td>
             </tr>

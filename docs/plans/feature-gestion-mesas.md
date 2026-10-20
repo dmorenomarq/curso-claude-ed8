@@ -47,7 +47,7 @@ Que el administrador gestione las mesas de un restaurante (CRUD), que el cliente
 | 30 | [CLI] Guardar el `tableId` en `CartStore` y enviarlo en `OrderService.createOrder` (hoy manda `null`) con test | `packages/web-clientes/src/app/core/store/`, `core/services/order.service.ts` | 8 | [x] |
 | 31 | [CLI] Pantalla «personas y mesas» entre `restaurant-list` y `restaurants/:id`: número de personas, mesas disponibles y botón «Continuar» que ocupa | `packages/web-clientes/src/app/features/tables/`, `app.routes.ts` | 10 | [x] |
 | 32 | [CLI] Errores en pantalla (`TableNotAvailableError` refresca la lista, `ClientAlreadySeatedError` continúa con su `tableId`, 400 `InvalidPartySizeError`) | `packages/web-clientes/src/app/features/tables/` | 8 | [x] |
-| 33 | [CLI] Guardia de mesa en carta y carrito (recupera con `/tables/mine` al recargar), botón «Liberar mesa» y número de mesa en `my-orders`/`order-detail` | `packages/web-clientes/src/app/app.routes.ts`, `features/menu/`, `features/cart/`, `features/orders/` | 10 | [ ] |
+| 33 | [CLI] Guardia de mesa en carta y carrito (recupera con `/tables/mine` al recargar), botón «Liberar mesa» y número de mesa en `my-orders`/`order-detail` | `packages/web-clientes/src/app/app.routes.ts`, `features/menu/`, `features/cart/`, `features/orders/` | 10 | [x] |
 
 ## Criterios de aceptación
 
@@ -59,7 +59,7 @@ Que el administrador gestione las mesas de un restaurante (CRUD), que el cliente
 - [ ] `PATCH .../status` a `libre` con líneas sin entregar devuelve 409 `TableInUseError` con `pendingItems`, salvo con `?force=true` de admin o manager.
 - [ ] `POST /orders` con `tableId` de una mesa no ocupada devuelve 409 y la respuesta de `Order` incluye `tableNumber`.
 - [ ] Un empleado que no es admin recibe 403 al operar sobre otro restaurante; un cocinero no puede crear, cambiar estado ni ocupar.
-- [ ] Flujo cliente en `web-clientes`: elegir restaurante → nº de personas → mesas → «Continuar» → carta; sin mesa no se puede llegar a la carta ni enviar el pedido.
+- [x] Flujo cliente en `web-clientes`: elegir restaurante → nº de personas → mesas → «Continuar» → carta; sin mesa no se puede llegar a la carta ni enviar el pedido.
 - [ ] `web-admin` permite listar, filtrar, crear, editar y borrar mesas mostrando los mensajes de error en español.
 - [ ] `web-empleados` muestra el estado de las mesas, permite cambiarlo y muestra los pedidos de las mesas ocupadas, refrescando cada 30 s.
 - [ ] `npm test` en `packages/api` y los tests de cada front pasan; `redocly lint gestion-mesas.openapi.yaml` sin errores.

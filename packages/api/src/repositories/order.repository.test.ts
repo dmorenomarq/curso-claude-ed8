@@ -98,4 +98,37 @@ describe('SqliteOrderRepository (mesas)', () => {
             expect(found[0]?.items).toHaveLength(2)
         })
     })
+
+    describe('tableNumber', () => {
+        beforeEach(async () => {
+            await db.run('DELETE FROM restaurant_tables')
+            await db.run(
+                'INSERT INTO restaurant_tables (id, restaurant_id, number, capacity, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                ['t1', 'r1', 7, 4, 'ocupada', 'now', 'now']
+            )
+            await repo.create(makeOrder('with-table', 't1', '2026-10-20T13:10:00.000Z', ['pendiente']))
+            await repo.create(makeOrder('no-table', null, '2026-10-20T13:20:00.000Z', ['pendiente']))
+        })
+
+        it('findById includes the number of the table, or null without table', async () => {
+            expect((await repo.findById('with-table'))?.tableNumber).toBe(7)
+            expect((await repo.findById('no-table'))?.tableNumber).toBeNull()
+        })
+
+        it('findActiveByRestaurant includes tableNumber', async () => {
+            const orders = await repo.findActiveByRestaurant('r1')
+
+            expect(orders.map(o => [o.id, o.tableNumber])).toEqual([['with-table', 7], ['no-table', null]])
+        })
+
+        it('findByClientId includes tableNumber', async () => {
+            const orders = await repo.findByClientId('c1')
+
+            expect(orders.map(o => [o.id, o.tableNumber]).sort()).toEqual([['no-table', null], ['with-table', 7]])
+        })
+
+        it('findByTable includes tableNumber', async () => {
+            expect((await repo.findByTable('t1', null))[0]?.tableNumber).toBe(7)
+        })
+    })
 })

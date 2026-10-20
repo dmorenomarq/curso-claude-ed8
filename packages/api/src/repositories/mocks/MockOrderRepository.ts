@@ -25,4 +25,19 @@ export class MockOrderRepository implements OrderRepository {
     async findByClientId(clientId: string): Promise<Order[]> {
         return this.orders.filter(o => o.clientId === clientId)
     }
+
+    async findByTable(tableId: string, since: string | null, onlyActive = false): Promise<Order[]> {
+        return this.orders
+            .filter(o => o.tableId === tableId && (since === null || o.createdAt.toISOString() >= since))
+            .filter(o => !onlyActive || o.items.some(item => item.status !== 'entregado'))
+            .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    }
+
+    async countPendingItemsByTable(tableId: string, since: string | null): Promise<number> {
+        return this.orders
+            .filter(o => o.tableId === tableId && (since === null || o.createdAt.toISOString() >= since))
+            .flatMap(o => o.items)
+            .filter(item => item.status !== 'entregado')
+            .length
+    }
 }

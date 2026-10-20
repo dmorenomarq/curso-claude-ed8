@@ -158,11 +158,34 @@ const seed = async () => {
 
         console.log('Restaurant 2 dishes created: 1 dish + 1 drink')
 
+        const tablesSeed = [
+            { restaurantId: 'rest-1', number: 1, capacity: 2, description: 'Ventana', status: 'libre' },
+            { restaurantId: 'rest-1', number: 2, capacity: 2, description: 'Ventana', status: 'libre' },
+            { restaurantId: 'rest-1', number: 3, capacity: 4, description: 'Terraza', status: 'libre' },
+            { restaurantId: 'rest-1', number: 4, capacity: 4, description: 'Terraza', status: 'reservada' },
+            { restaurantId: 'rest-1', number: 5, capacity: 6, description: 'Salón principal', status: 'ocupada' },
+            { restaurantId: 'rest-1', number: 6, capacity: 8, description: 'Salón privado', status: 'libre' },
+            { restaurantId: 'rest-2', number: 1, capacity: 2, description: null, status: 'libre' },
+            { restaurantId: 'rest-2', number: 2, capacity: 4, description: null, status: 'libre' },
+            { restaurantId: 'rest-2', number: 3, capacity: 6, description: 'Mesa grande', status: 'libre' },
+        ]
+
+        for (const t of tablesSeed) {
+            const now = new Date().toISOString()
+            const occupiedAt = t.status === 'ocupada' ? new Date(Date.now() - 60 * 60 * 1000).toISOString() : null
+            await dbConfig.run(`
+                INSERT OR IGNORE INTO restaurant_tables (id, restaurant_id, number, description, capacity, status, party_size, occupied_by_client_id, occupied_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [`${t.restaurantId}-mesa-${t.number}`, t.restaurantId, t.number, t.description, t.capacity, t.status, t.status === 'ocupada' ? 4 : null, null, occupiedAt, now, now])
+        }
+
+        console.log(`Tables created: ${tablesSeed.length}`)
+
         const order1Id = randomUUID()
         await dbConfig.run(`
             INSERT OR IGNORE INTO orders (id, restaurant_id, table_id, client_id, created_at)
             VALUES (?, ?, ?, ?, ?)
-        `, [order1Id, 'rest-1', '5', null, new Date().toISOString()])
+        `, [order1Id, 'rest-1', 'rest-1-mesa-5', null, new Date().toISOString()])
 
         for (let i = 0; i < 2; i++) {
             await dbConfig.run(`

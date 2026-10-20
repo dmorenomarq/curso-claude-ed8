@@ -5,7 +5,21 @@ const NOT_FOUND_ERRORS = [
     'EmployeeNotFoundError',
     'RestaurantNotFoundError',
     'IngredientNotFoundError',
-    'DishNotFoundError'
+    'DishNotFoundError',
+    'TableNotFoundError'
+]
+
+const CONFLICT_ERRORS = [
+    'DuplicatedTableNumberError',
+    'TableInUseError',
+    'TableNotAvailableError',
+    'ClientAlreadySeatedError',
+    'TableNotOccupiedError',
+    'TableNotOccupiedByClientError'
+]
+
+const FORBIDDEN_ERRORS = [
+    'NotTableOwnerError'
 ]
 
 const UNAUTHORIZED_ERRORS = [
@@ -14,17 +28,25 @@ const UNAUTHORIZED_ERRORS = [
 
 export const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunction): void => {
     if (err instanceof AppError) {
+        if (FORBIDDEN_ERRORS.includes(err.name)) {
+            res.status(403).json({ error: `Forbidden: ${err.message}` })
+            return
+        }
+
         let statusCode = 400
 
         if (NOT_FOUND_ERRORS.includes(err.name)) {
             statusCode = 404
         } else if (UNAUTHORIZED_ERRORS.includes(err.name)) {
             statusCode = 401
+        } else if (CONFLICT_ERRORS.includes(err.name)) {
+            statusCode = 409
         }
 
         res.status(statusCode).json({
             error: err.name,
-            message: err.message
+            message: err.message,
+            ...(err as AppError & { details?: object }).details
         })
         return
     }

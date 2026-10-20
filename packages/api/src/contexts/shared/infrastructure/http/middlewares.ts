@@ -39,3 +39,15 @@ export const authorize = (roles: string[]) => {
         next()
     }
 }
+
+const ROLES_WITHOUT_RESTAURANT_SCOPE = ['admin', 'cliente']
+
+/** Un empleado que no sea admin solo puede operar sobre el restaurante de su JWT. Los clientes no están acotados. */
+export const restrictToOwnRestaurant = (req: AuthRequest, res: Response, next: NextFunction): void => {
+    const { role, restaurantId } = req.user ?? {}
+    if (!ROLES_WITHOUT_RESTAURANT_SCOPE.includes(role) && restaurantId !== req.params.restaurantId) {
+        res.status(403).json({ error: 'Forbidden: Insufficient permissions' })
+        return
+    }
+    next()
+}

@@ -162,3 +162,75 @@ export class OrderNotFoundError extends AppError {
   }
 }
 
+
+export class InvalidTableError extends AppError {
+  constructor(message?: string) {
+    super(message ?? 'Datos de mesa inválidos')
+  }
+}
+
+export class TableNotFoundError extends AppError {
+  constructor() {
+    super('Mesa no encontrada')
+  }
+}
+
+export class DuplicatedTableNumberError extends AppError {
+  constructor(number: number) {
+    super(`Ya existe una mesa con el número ${number} en este restaurante`)
+  }
+}
+
+export type TableInUseReason = 'ocupada' | 'reservada' | 'pedidos_pendientes'
+
+export class TableInUseError extends AppError {
+  public readonly details: { reason: TableInUseReason, pendingItems: number }
+
+  constructor(reason: TableInUseReason, pendingItems: number) {
+    super(
+      reason === 'pedidos_pendientes'
+        ? `La mesa tiene ${pendingItems} ${pendingItems === 1 ? 'línea' : 'líneas'} de pedido sin entregar`
+        : `No se puede continuar: la mesa está ${reason}`
+    )
+    this.details = { reason, pendingItems }
+  }
+}
+
+export class TableNotAvailableError extends AppError {
+  constructor() {
+    super('La mesa ya no está disponible')
+  }
+}
+
+export class ClientAlreadySeatedError extends AppError {
+  public readonly details: { tableId: string }
+
+  constructor(tableNumber: number, tableId: string) {
+    super(`Ya tienes la mesa ${tableNumber} ocupada`)
+    this.details = { tableId }
+  }
+}
+
+export class InvalidPartySizeError extends AppError {
+  constructor(message?: string) {
+    super(message ?? 'El número de personas debe ser un entero mayor o igual que 1')
+  }
+}
+
+export class TableNotOccupiedError extends AppError {
+  constructor() {
+    super('La mesa no está ocupada')
+  }
+}
+
+export class TableNotOccupiedByClientError extends AppError {
+  constructor() {
+    super('La mesa no está ocupada por este cliente')
+  }
+}
+
+export class NotTableOwnerError extends AppError {
+  constructor() {
+    super('Only the client occupying the table can release it')
+  }
+}

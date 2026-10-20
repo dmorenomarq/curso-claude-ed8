@@ -225,3 +225,176 @@ describe('Rutas de mesas: roles y alcance', () => {
         })
     })
 })
+
+describe('Flujo del cliente: disponibles, ocupar y pedir', () => {
+    const c1 = token('cliente', null, 'c1')
+    const c2 = token('cliente', null, 'c2')
+    const orderBody = (tableId: string | null) => ({
+        restaurantId: 'r1', tableId, items: [{ dishId: 'd1', quantity: 2 }]
+    })
+
+    beforeAll(async () => {
+        process.env.NODE_ENV = 'test'
+        await dbConfig.initialize()
+        await insertRestaurant('r1')
+        await dbConfig.run(
+            'INSERT INTO dishes (id, name, price, category, available, restaurant_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            ['d1', 'Paella', 12, 'principal', 1, 'r1', 'now', 'now']
+        )
+    })
+
+    beforeEach(async () => {
+        await dbConfig.run('DELETE FROM order_items')
+        await dbConfig.run('DELETE FROM orders')
+        await dbConfig.run('DELETE FROM restaurant_tables')
+        await insertTable('big', 'r1', 1, 8)
+        await insertTable('small', 'r1', 2, 2)
+        await insertTable('mid', 'r1', 3, 4)
+        await insertTable('mid2', 'r1', 4, 4)
+    })
+
+    afterAll(async () => {
+        await dbConfig.close()
+    })
+
+    it('available -> occupy -> POST /orders -> the staff sees the order', async () => {
+        const available = await request(app).get(`${base()}/available?partySize=3`).set('Authorization', c1)
+        expect(available.status).toBe(200)
+        expect(available.body.map((t: any) => t.id)).toEqual(['mid', 'mid2', 'big'])
+
+        const occupied = await request(app).post(`${base()}/mid/occupy`).set('Authorization', c1).send({ partySize: 3 })
+        expect(occupied.status).toBe(200)
+        expect(occupied.body).toMatchObject({ id: 'mid', status: 'ocupada', partySize: 3, occupiedByClientId: 'c1' })
+
+        const mine = await request(app).get(`${base()}/mine`).set('Authorization', c1)
+        expect(mine.body.id).toBe('mid')
+
+        const created = await request(app).post('/api/v1/orders').set('Authorization', c1).send(orderBody('mid'))
+        expect(created.status).toBe(201)
+        expect(created.body).toMatchObject({ tableId: 'mid', tableNumber: 3, clientId: 'c1' })
+
+        const fetched = await request(app).get(`/api/v1/orders/${created.body.id}`).set('Authorization', c1)
+        expect(fetched.body.tableNumber).toBe(3)
+        const mineOrders = await request(app).get('/api/v1/orders/mine').set('Authorization', c1)
+        expect(mineOrders.body[0].tableNumber).toBe(3)
+
+        const staff = tokens.camarero
+        const board = await request(app).get(`${base()}?include=activeOrders`).set('Authorization', staff)
+        const midInBoard = board.body.find((t: any) => t.id === 'mid')
+        expect(midInBoard.activeOrders).toHaveLength(1)
+        expect(midInBoard.activeOrders[0].items).toHaveLength(2)
+        expect(board.body.find((t: any) => t.id === 'big')).not.toHaveProperty('activeOrders')
+
+        const orders = await request(app).get(`${base()}/mid/orders`).set('Authorization', staff)
+        expect(orders.body.map((o: any) => o.id)).toEqual([created.body.id])
+
+        const stillAvailable = await request(app).get(`${base()}/available?partySize=3`).set('Authorization', c2)
+        expect(stillAvailable.body.map((t: any) => t.id)).toEqual(['mid2', 'big'])
+    })
+
+    it('releasing with undelivered lines gives 409 with pendingItems, force releases', async () => {
+        await request(app).post(`${base()}/mid/occupy`).set('Authorization', c1).send({ partySize: 2 })
+        await request(app).post('/api/v1/orders').set('Authorization', c1).send(orderBody('mid'))
+
+        const blocked = await request(app).patch(`${base()}/mid/status`).set('Authorization', tokens.camarero).send({ status: 'libre' })
+        expect(blocked.status).toBe(409)
+        expect(blocked.body).toMatchObject({ error: 'TableInUseError', reason: 'pedidos_pendientes', pendingItems: 2 })
+
+        const clientRelease = await request(app).post(`${base()}/mid/release`).set('Authorization', c1)
+        expect(clientRelease.status).toBe(409)
+
+        const forced = await request(app).patch(`${base()}/mid/status?force=true`).set('Authorization', tokens.manager).send({ status: 'libre' })
+        expect(forced.status).toBe(200)
+        expect(forced.body).toMatchObject({ status: 'libre', occupiedByClientId: null })
+    })
+
+    it('a client can release a table before ordering', async () => {
+        await request(app).post(`${base()}/mid/occupy`).set('Authorization', c1).send({ partySize: 2 })
+
+        const released = await request(app).post(`${base()}/mid/release`).set('Authorization', c1)
+
+        expect(released.status).toBe(200)
+        expect(released.body.status).toBe('libre')
+    })
+
+    it('another client cannot release the table', async () => {
+        await request(app).post(`${base()}/mid/occupy`).set('Authorization', c1).send({ partySize: 2 })
+
+        const res = await request(app).post(`${base()}/mid/release`).set('Authorization', c2)
+
+        expect(res.status).toBe(403)
+    })
+
+    it('two simultaneous occupy calls: one 200 and one 409 TableNotAvailableError', async () => {
+        const [a, b] = await Promise.all([
+            request(app).post(`${base()}/mid/occupy`).set('Authorization', c1).send({ partySize: 2 }),
+            request(app).post(`${base()}/mid/occupy`).set('Authorization', c2).send({ partySize: 2 })
+        ])
+
+        expect([a.status, b.status].sort()).toEqual([200, 409])
+        const loser = a.status === 409 ? a : b
+        expect(loser.body.error).toBe('TableNotAvailableError')
+    })
+
+    it('repeating occupy for the same client and table is a 200', async () => {
+        const first = await request(app).post(`${base()}/mid/occupy`).set('Authorization', c1).send({ partySize: 2 })
+        const second = await request(app).post(`${base()}/mid/occupy`).set('Authorization', c1).send({ partySize: 2 })
+
+        expect(second.status).toBe(200)
+        expect(second.body).toEqual(first.body)
+    })
+
+    it('occupying a second table gives 409 ClientAlreadySeatedError with the tableId', async () => {
+        await request(app).post(`${base()}/mid/occupy`).set('Authorization', c1).send({ partySize: 2 })
+
+        const res = await request(app).post(`${base()}/mid2/occupy`).set('Authorization', c1).send({ partySize: 2 })
+
+        expect(res.status).toBe(409)
+        expect(res.body).toMatchObject({ error: 'ClientAlreadySeatedError', tableId: 'mid' })
+    })
+
+    it('occupy with a party larger than the capacity gives 400 InvalidPartySizeError', async () => {
+        const res = await request(app).post(`${base()}/small/occupy`).set('Authorization', c1).send({ partySize: 3 })
+
+        expect(res.status).toBe(400)
+        expect(res.body.error).toBe('InvalidPartySizeError')
+    })
+
+    it('POST /orders on a table that is not occupied gives 409 and creates nothing', async () => {
+        const res = await request(app).post('/api/v1/orders').set('Authorization', c1).send(orderBody('mid'))
+
+        expect(res.status).toBe(409)
+        expect(res.body.error).toBe('TableNotOccupiedByClientError')
+        expect(await dbConfig.all('SELECT id FROM orders')).toHaveLength(0)
+    })
+
+    it('POST /orders on a table occupied by another client gives 409', async () => {
+        await request(app).post(`${base()}/mid/occupy`).set('Authorization', c2).send({ partySize: 2 })
+
+        const res = await request(app).post('/api/v1/orders').set('Authorization', c1).send(orderBody('mid'))
+
+        expect(res.status).toBe(409)
+        expect(res.body.error).toBe('TableNotOccupiedByClientError')
+    })
+
+    it('POST /orders with an unknown table gives 404 TableNotFoundError', async () => {
+        const res = await request(app).post('/api/v1/orders').set('Authorization', c1).send(orderBody('nope'))
+
+        expect(res.status).toBe(404)
+        expect(res.body.error).toBe('TableNotFoundError')
+    })
+
+    it('POST /orders from the staff on a free table gives 409 TableNotOccupiedError', async () => {
+        const res = await request(app).post('/api/v1/orders').set('Authorization', tokens.camarero).send(orderBody('mid'))
+
+        expect(res.status).toBe(409)
+        expect(res.body.error).toBe('TableNotOccupiedError')
+    })
+
+    it('POST /orders without a table keeps working with tableNumber null', async () => {
+        const res = await request(app).post('/api/v1/orders').set('Authorization', c1).send(orderBody(null))
+
+        expect(res.status).toBe(201)
+        expect(res.body.tableNumber).toBeNull()
+    })
+})
